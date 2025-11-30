@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Food-inspired fresh design system */
+    --background: 120 20% 98%;
+    --foreground: 240 10% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 15%;
+
+    /* Fresh green primary */
+    --primary: 140 65% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 140 65% 55%;
+
+    /* Warm secondary */
+    --secondary: 30 100% 96%;
+    --secondary-foreground: 240 10% 15%;
+
+    --muted: 120 20% 95%;
+    --muted-foreground: 240 6% 50%;
+
+    /* Warm accent */
+    --accent: 35 85% 85%;
+    --accent-foreground: 240 10% 15%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 120 15% 90%;
+    --input: 120 15% 92%;
+    --ring: 140 65% 45%;
+
+    /* Food gradients */
+    --gradient-fresh: linear-gradient(135deg, hsl(140 65% 45%), hsl(160 70% 50%));
+    --gradient-warm: linear-gradient(135deg, hsl(35 90% 70%), hsl(25 95% 75%));
+    --gradient-hero: linear-gradient(135deg, hsl(140 65% 45%) 0%, hsl(35 90% 70%) 100%);
+
+    /* Subtle shadows */
+    --shadow-soft: 0 2px 10px -2px hsl(140 40% 45% / 0.1);
+    --shadow-card: 0 4px 20px -4px hsl(140 40% 45% / 0.15);
+    --shadow-glow: 0 0 30px hsl(140 65% 55% / 0.3);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .diamond {
+    /* Diamond theme with blue/crystal colors */
+    --background: 210 100% 98%;
+    --foreground: 210 100% 10%;
+    --card: 210 100% 99%;
+    --card-foreground: 210 100% 15%;
+    --popover: 210 100% 99%;
+    --popover-foreground: 210 100% 15%;
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 210 100% 65%;
+    --secondary: 210 50% 96%;
+    --secondary-foreground: 210 100% 15%;
+    --muted: 210 50% 95%;
+    --muted-foreground: 210 30% 40%;
+    --accent: 210 80% 90%;
+    --accent-foreground: 210 100% 15%;
+    --border: 210 50% 85%;
+    --input: 210 50% 92%;
+    --ring: 210 100% 50%;
+    
+    /* Diamond gradients */
+    --gradient-fresh: linear-gradient(135deg, hsl(210 100% 50%), hsl(200 100% 60%));
+    --gradient-warm: linear-gradient(135deg, hsl(210 80% 70%), hsl(200 90% 75%));
+    --gradient-hero: linear-gradient(135deg, hsl(210 100% 50%) 0%, hsl(200 100% 60%) 100%);
+    
+    /* Diamond shadows */
+    --shadow-soft: 0 2px 10px -2px hsl(210 100% 50% / 0.15);
+    --shadow-card: 0 4px 20px -4px hsl(210 100% 50% / 0.2);
+    --shadow-glow: 0 0 30px hsl(210 100% 60% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Plan badge shimmer animations */
+  @keyframes shimmer-silver {
+    0%, 100% { 
+      background-position: -200% center;
+    }
+    50% { 
+      background-position: 200% center;
+    }
+  }
+  
+  @keyframes shimmer-gold {
+    0%, 100% { 
+      background-position: -200% center;
+    }
+    50% { 
+      background-position: 200% center;
+    }
+  }
+  
+  @keyframes shimmer-diamond {
+    0%, 100% { 
+      background-position: -200% center;
+      box-shadow: var(--shadow-diamond);
+    }
+    25% {
+      background-position: -100% center;
+      box-shadow: var(--shadow-diamond), 0 0 30px hsl(210 100% 70% / 0.4);
+    }
+    50% { 
+      background-position: 200% center;
+      box-shadow: var(--shadow-diamond), 0 0 40px hsl(210 100% 70% / 0.5);
+    }
+    75% {
+      background-position: 100% center;
+      box-shadow: var(--shadow-diamond), 0 0 30px hsl(210 100% 70% / 0.4);
+    }
+  }
+
+  .animate-shimmer-silver {
+    background: linear-gradient(90deg, 
+      hsl(210 11% 75%) 0%, 
+      hsl(210 11% 95%) 50%, 
+      hsl(210 11% 75%) 100%);
+    background-size: 200% 100%;
+    animation: shimmer-silver 2s ease-in-out infinite;
+  }
+  
+  .animate-shimmer-gold {
+    background: linear-gradient(90deg, 
+      hsl(45 90% 55%) 0%, 
+      hsl(45 90% 75%) 50%, 
+      hsl(45 90% 55%) 100%);
+    background-size: 200% 100%;
+    animation: shimmer-gold 2s ease-in-out infinite;
+  }
+  
+  .animate-shimmer-diamond {
+    background: linear-gradient(90deg, 
+      hsl(210 100% 55%) 0%, 
+      hsl(210 100% 85%) 25%,
+      hsl(200 100% 95%) 50%,
+      hsl(210 100% 85%) 75%,
+      hsl(210 100% 55%) 100%);
+    background-size: 200% 100%;
+    animation: shimmer-diamond 2s ease-in-out infinite;
+    position: relative;
+  }
+  
+  .animate-shimmer-diamond::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+    animation: shimmer-diamond 2s ease-in-out infinite;
+    border-radius: inherit;
+  }
+
+  .shadow-silver {
+    box-shadow: var(--shadow-silver);
+  }
+  
+  .shadow-gold {
+    box-shadow: var(--shadow-gold);
+  }
+  
+  .shadow-diamond {
+    box-shadow: var(--shadow-diamond);
+  }
+}
