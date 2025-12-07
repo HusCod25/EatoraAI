@@ -301,7 +301,7 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
               key={plan.name}
               className={`relative rounded-xl p-6 border-2 transition-all duration-200 hover:shadow-lg transform ${
                 isCurrent(plan.planKey)
-                  ? 'border-green-500 shadow-lg bg-green-50 dark:bg-green-950/20'
+                  ? 'border-green-500 shadow-lg'
                   : plan.recommended 
                     ? 'border-primary shadow-[0_20px_45px_rgba(34,197,94,0.35)] scale-[1.02] -translate-y-1 bg-primary/5'
                     : 'border-border hover:border-primary/50'
@@ -314,7 +314,7 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
                   </Badge>
                 </div>
               )}
-              {plan.recommended && (
+              {plan.recommended && !isCurrent(plan.planKey) && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                   <Badge className="bg-amber-500 text-white px-2 py-0.5 text-[0.7rem] uppercase tracking-wide shadow-md">
                     Recommended

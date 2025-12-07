@@ -207,7 +207,7 @@ export const AddIngredientModal = ({ open, onOpenChange }: AddIngredientModalPro
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="modal-content sm:max-w-md bg-background/95 backdrop-blur-xl border-0 shadow-2xl"
+        className="modal-content sm:max-w-md bg-background/95 backdrop-blur-xl border-0 shadow-2xl max-h-[85vh] overflow-y-auto"
         onPointerDownOutside={handleBackdropClick}
       >
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
@@ -243,7 +243,8 @@ export const AddIngredientModal = ({ open, onOpenChange }: AddIngredientModalPro
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="modal-content sm:max-w-lg bg-background/95 backdrop-blur-xl border-0 shadow-2xl"
+        hideCloseButton
+        className="modal-content sm:max-w-lg bg-background/95 backdrop-blur-xl border-0 shadow-2xl max-h-[90vh] overflow-y-auto"
         onPointerDownOutside={handleBackdropClick}
       >
         <DialogHeader className="space-y-3">

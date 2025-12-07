@@ -7,11 +7,13 @@ import { UserAccount } from "@/components/UserAccount";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ChefHat, Sparkles } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"generate" | "saved" | "profile">("generate");
+  const [visitedTabs, setVisitedTabs] = useState<Set<"generate" | "saved" | "profile">>(() => new Set(["generate"]));
   const savedMealsRef = useRef<{ refreshMeals: () => void } | null>(null);
 
   // Handle /account route - show profile tab
@@ -49,16 +51,29 @@ const Index = () => {
     }, 3000);
   };
 
-  const renderMobileContent = () => {
-    switch (activeTab) {
-      case "saved":
-        return <SavedMeals />;
-      case "profile":
-        return <UserAccount />;
-      default:
-        return <MealGenerator onMealGenerated={handleMealGenerated} />;
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
+
+  const mobileTabs: { id: "generate" | "saved" | "profile"; render: () => JSX.Element }[] = [
+    {
+      id: "generate",
+      render: () => <MealGenerator onMealGenerated={handleMealGenerated} />
+    },
+    {
+      id: "saved",
+      render: () => <SavedMeals />
+    },
+    {
+      id: "profile",
+      render: () => <UserAccount />
     }
-  };
+  ];
 
   return (
     <Layout>
@@ -95,8 +110,23 @@ const Index = () => {
 
       {/* Mobile Layout */}
       <MainContent className="lg:hidden pb-20">
-        <CenterPanel className="w-full">
-          {renderMobileContent()}
+        <CenterPanel className="w-full relative min-h-[70vh]">
+          {mobileTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const shouldRender = visitedTabs.has(tab.id);
+            return (
+              <div
+                key={tab.id}
+                className={cn(
+                  "transition-opacity duration-200",
+                  isActive ? "opacity-100 relative" : "opacity-0 pointer-events-none absolute inset-0"
+                )}
+                aria-hidden={!isActive}
+              >
+                {shouldRender && tab.render()}
+              </div>
+            );
+          })}
         </CenterPanel>
       </MainContent>
 

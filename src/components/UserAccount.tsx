@@ -376,55 +376,27 @@ export const UserAccount = () => {
             {/* Subtle shine effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shine_3s_ease-in-out_infinite] pointer-events-none"></div>
             
-            {/* Premium Badge */}
-            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <div className="bg-gradient-fresh px-3 py-1 rounded-full border-2 border-white shadow-lg">
-                <span className="text-white text-xs font-bold flex items-center gap-1">
-                  <Star className="h-3 w-3 fill-white" />
-                  PREMIUM
-                </span>
-              </div>
-            </div>
-            
             <div className="space-y-4 pt-1">
               {/* Title */}
               <div className="text-center">
                 <h3 className="text-lg font-bold text-white mb-2 mt-2">
-                  🚀 Unlock Your Full Potential!
+                  🚀 Unlock Your Full Potential with <span className="text-emerald-300">Premium</span>
                 </h3>
               </div>
 
               {/* Benefits */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-2 text-white/95 text-sm">
-                  <div className="w-2 h-2 bg-white rounded-full mt-1.5 flex-shrink-0"></div>
-                  <div>
-                    <span className="font-semibold">Unlimited Ingredients & Advanced Recipes</span>
-                    <span className="text-white/80"> – more freedom and creativity</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 text-white/95 text-sm">
-                  <div className="w-2 h-2 bg-white rounded-full mt-1.5 flex-shrink-0"></div>
-                  <div>
-                    <span className="font-semibold">Save & Personalize Your Meals</span>
-                    <span className="text-white/80"> – keep favorites and get custom suggestions</span>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 text-white/95 text-sm">
-                  <div className="w-2 h-2 bg-white rounded-full mt-1.5 flex-shrink-0"></div>
-                  <div>
-                    <span className="font-semibold">Smarter Meal Planning</span>
-                    <span className="text-white/80"> – up to 200 meals per week, stress-free planning</span>
-                  </div>
-                </div>
+              <div className="space-y-2 text-white/95 text-sm">
+                <p>✅ 👨‍🍳 <span className="font-semibold">Unlimited Ingredients & Advanced Recipes</span> – more freedom and creativity</p>
+                <p>✅ 📅 <span className="font-semibold">Smarter Meal Planning</span> – up to 400 meals per week, stress-free planning</p>
+                <p>✅ ⚡ <span className="font-semibold">Priority Support & Requests</span> – skip the queue & influence future features</p>
               </div>
 
               {/* Call to Action */}
               <Button 
                 onClick={() => setShowPricing(true)}
-                className="w-full rounded-full bg-white text-[#050b16] font-semibold py-3 text-base shadow-[0_30px_90px_rgba(120,255,165,0.35)] ring-1 ring-white/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90"
+                className="w-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500 text-white font-semibold py-3 text-base shadow-[0_30px_90px_rgba(34,197,94,0.35)] ring-1 ring-emerald-200/50 transition-all duration-300 hover:-translate-y-0.5 hover:from-emerald-500 hover:to-green-600"
               >
-                <Star className="h-5 w-5 mr-2 fill-current" />
+                <Star className="h-5 w-5 mr-2" />
                 Upgrade to Premium
               </Button>
               

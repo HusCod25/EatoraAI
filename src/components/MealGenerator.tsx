@@ -481,14 +481,6 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
         />
       )}
 
-      {!subscriptionLoading && !hasFeature('advanced_recipes') && (
-        <SubtlePlanPrompt
-          message="Advanced recipes available with Beginner Plan"
-          onUpgrade={() => setShowUpgrade(true)}
-          type="feature"
-        />
-      )}
-
       {!subscriptionLoading && isNearIngredientLimit && !isIngredientLimitReached && (
         <SubtlePlanPrompt
           message={`Ingredient limit: ${ingredients.length}/${ingredientLimit} used`}
