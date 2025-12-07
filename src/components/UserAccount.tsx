@@ -16,6 +16,8 @@ import { useUserActivity } from "@/hooks/useUserActivity";
 import { PlanBadge } from "@/components/ui/plan-badge";
 import { ThemeChanger } from "./ThemeChanger";
 import { MyAddedIngredients } from "./MyAddedIngredients";
+import { AddIngredientSection } from "@/components/AddIngredientSection";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserProfile {
   phone_number?: string;
@@ -205,6 +207,24 @@ export const UserAccount = () => {
     );
   }
 
+  if (subscriptionLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center space-y-3">
+          <Skeleton className="mx-auto h-16 w-16 rounded-full" />
+          <Skeleton className="mx-auto h-4 w-32" />
+          <Skeleton className="mx-auto h-3 w-40" />
+          <div className="flex items-center justify-center gap-2">
+            <Skeleton className="h-8 w-20 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-full" />
+          </div>
+        </div>
+        <Skeleton className="h-32 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="space-y-6">
@@ -224,6 +244,7 @@ export const UserAccount = () => {
             </Link>
           </div>
         </div>
+        <AddIngredientSection variant="banner" className="mt-3" />
       </div>
     );
   }
@@ -401,7 +422,7 @@ export const UserAccount = () => {
               {/* Call to Action */}
               <Button 
                 onClick={() => setShowPricing(true)}
-                className="w-full bg-white text-primary hover:bg-white/95 font-bold py-3 text-base shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                className="w-full rounded-full bg-white text-[#050b16] font-semibold py-3 text-base shadow-[0_30px_90px_rgba(120,255,165,0.35)] ring-1 ring-white/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/90"
               >
                 <Star className="h-5 w-5 mr-2 fill-current" />
                 Upgrade to Premium
@@ -428,7 +449,7 @@ export const UserAccount = () => {
 
       {/* Sign Out */}
       <button 
-        className="text-sm text-red-600 hover:text-red-700 cursor-pointer"
+        className="text-sm text-red-400 hover:text-red-300 cursor-pointer"
         onClick={handleLogout}
       >
         Sign Out

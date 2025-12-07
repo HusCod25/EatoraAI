@@ -1,6 +1,6 @@
 # Admin Role Management Commands
 
-Quick reference guide for granting and managing admin roles in chompsy.ai.
+Quick reference guide for granting and managing admin roles in MunchiesAI™.
 
 ## 📋 Table of Contents
 
@@ -71,7 +71,7 @@ SELECT bootstrap_admin('USER_UUID_HERE'::uuid);
 **Example:**
 ```sql
 -- Step 1: Find UUID
-SELECT id FROM auth.users WHERE email = 'admin@chompsy.ai';
+SELECT id FROM auth.users WHERE email = 'admin@MunchiesAI™';
 -- Returns: 123e4567-e89b-12d3-a456-426614174000
 
 -- Step 2: Grant admin

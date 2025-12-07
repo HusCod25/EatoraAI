@@ -1,6 +1,6 @@
-# Deployment Guide for chompsy.ai
+# Deployment Guide for MunchiesAI™
 
-This guide provides step-by-step instructions for deploying chompsy.ai to production.
+This guide provides step-by-step instructions for deploying MunchiesAI™ to production.
 
 ## 📋 Pre-Deployment Checklist
 

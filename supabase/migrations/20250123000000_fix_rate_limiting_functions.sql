@@ -1,4 +1,4 @@
--- Fix rate limiting system for chompsy.ai
+-- Fix rate limiting system for MunchiesAI™
 -- This migration ensures the correct functions and triggers are in place
 
 -- 1. Ensure RLS is enabled on user_activity_log

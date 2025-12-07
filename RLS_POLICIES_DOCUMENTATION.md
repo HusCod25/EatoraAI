@@ -1,6 +1,6 @@
 # Row Level Security (RLS) Policies Documentation
 
-This document describes all RLS policies in the chompsy.ai database.
+This document describes all RLS policies in the MunchiesAI™ database.
 
 ## Overview
 

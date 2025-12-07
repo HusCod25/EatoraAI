@@ -71,8 +71,11 @@ const SignIn = () => {
           <div className="w-12 h-12 bg-gradient-fresh rounded-xl flex items-center justify-center mx-auto mb-4">
             <ChefHat className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl bg-gradient-hero bg-clip-text text-transparent">
-            Welcome back to chompsy.ai
+          <CardTitle className="text-2xl font-semibold">
+            <span className="text-muted-foreground">Welcome back to </span>
+            <span className="bg-gradient-fresh bg-clip-text text-transparent">
+              EatoraAI™
+            </span>
           </CardTitle>
           <CardDescription>
             Sign in to continue creating amazing meals

@@ -1,6 +1,6 @@
 # Database Security Checklist - Pre-Launch
 
-Comprehensive security checklist to ensure your Supabase database is safe before launching chompsy.ai.
+Comprehensive security checklist to ensure your Supabase database is safe before launching MunchiesAI™.
 
 ## 🔒 Critical Security Items
 

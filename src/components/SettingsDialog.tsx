@@ -862,7 +862,7 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
 
           {/* App Version */}
           <div className="text-center text-xs text-muted-foreground pt-4 border-t">
-            <p>chompsy.ai {getVersionString()}</p>
+            <p>EatoraAI™ {getVersionString()}</p>
           </div>
         </div>
       </DialogContent>

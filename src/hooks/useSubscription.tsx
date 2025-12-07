@@ -155,7 +155,7 @@ export const useSubscription = () => {
     const planDisplayMap: Record<SubscriptionPlan, { name: string; price: string }> = {
       free: { name: 'Free Plan', price: '€0' },
       beginner: { name: 'Beginner Plan', price: '€4.99/month' },
-      chef: { name: 'Chef Plan', price: '€14.99/month' },
+      chef: { name: 'Chef Plan', price: '€9.99/month' },
       unlimited: { name: 'Unlimited Plan', price: '€29.99/month' },
       admin: { name: 'Admin', price: 'Admin Access' }
     };

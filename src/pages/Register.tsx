@@ -120,7 +120,7 @@ const Register = () => {
             <ChefHat className="h-6 w-6 text-white" />
           </div>
           <CardTitle className="text-2xl bg-gradient-hero bg-clip-text text-transparent">
-            Join chompsy.ai
+            Join EatoraAI™
           </CardTitle>
           <CardDescription>
             Create your account to start generating amazing meals

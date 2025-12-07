@@ -4,9 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Sparkles, ChevronDown, Plus, X } from "lucide-react";
+import { Sparkles, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -20,6 +18,7 @@ import { IngredientSearchInput } from "@/components/IngredientSearchInput";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 
 interface Ingredient {
@@ -55,7 +54,7 @@ interface MealGeneratorProps {
 
 export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
   const { user } = useAuth();
-  const { planLimits, checkLimit, hasFeature, getCurrentPlanDisplay, subscription } = useSubscription();
+  const { planLimits, checkLimit, hasFeature, getCurrentPlanDisplay, subscription, loading: subscriptionLoading } = useSubscription();
   const { activity, incrementMealsGenerated } = useUserActivity();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newIngredient, setNewIngredient] = useState({ name: "", quantity: "", unit: "grams" });
@@ -71,6 +70,9 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
   const [generatedMeals, setGeneratedMeals] = useState<GeneratedMeal[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<GeneratedMeal | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [latestGeneratedMeal, setLatestGeneratedMeal] = useState<GeneratedMeal | null>(null);
+  const [showFreshMealDialog, setShowFreshMealDialog] = useState(false);
+  const [showIngredientsDialog, setShowIngredientsDialog] = useState(false);
 
   const units = ["grams", "kg", "ounces", "pieces", "cups", "tbsp", "tsp", "ml", "liters"];
 
@@ -137,6 +139,99 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
   const removeIngredient = (index: number) => {
     setIngredients(ingredients.filter((_, i) => i !== index));
+  };
+
+  const closeFreshMealDialog = () => {
+    setShowFreshMealDialog(false);
+    setLatestGeneratedMeal(null);
+  };
+
+  const handleKeepLatestMeal = () => {
+    closeFreshMealDialog();
+  };
+
+  const handleDeleteLatestMeal = async () => {
+    if (!latestGeneratedMeal || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('generated_meals')
+        .delete()
+        .eq('id', latestGeneratedMeal.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast.success("Meal deleted");
+      await fetchGeneratedMeals();
+    } catch (error) {
+      logger.error('Error deleting latest meal:', error);
+      toast.error("Failed to delete meal");
+    } finally {
+      closeFreshMealDialog();
+    }
+  };
+
+  const handleSaveLatestMeal = async () => {
+    if (!latestGeneratedMeal || !user) return;
+
+    const saveLimit = planLimits?.max_saved_meals;
+
+    if (typeof saveLimit === "number") {
+      const { count, error: countError } = await supabase
+        .from('saved_meals')
+        .select('*', { head: true, count: 'exact' })
+        .eq('user_id', user.id);
+
+      if (countError) {
+        logger.error('Error checking save quota:', countError);
+        toast.error("Unable to verify save limit. Please try again.");
+        return;
+      }
+
+      if ((count ?? 0) >= saveLimit) {
+        toast.error(`You've reached your save limit of ${saveLimit}.`);
+        setShowUpgrade(true);
+        return;
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from('saved_meals')
+        .insert({
+          user_id: user.id,
+          title: latestGeneratedMeal.title,
+          description: latestGeneratedMeal.description,
+          ingredients: latestGeneratedMeal.ingredients as any,
+          preparation_method: latestGeneratedMeal.preparation_method,
+          cooking_time: latestGeneratedMeal.cooking_time,
+          calories: latestGeneratedMeal.calories,
+          tags: latestGeneratedMeal.tags,
+          saved_from_generated_id: latestGeneratedMeal.id
+        });
+
+      if (error) throw error;
+
+      await supabase
+        .from('generated_meals')
+        .delete()
+        .eq('id', latestGeneratedMeal.id)
+        .eq('user_id', user.id);
+
+      toast.success("Meal saved successfully!");
+      await fetchGeneratedMeals();
+    } catch (error) {
+      logger.error('Error saving latest meal:', error);
+      toast.error("Failed to save meal");
+      return;
+    }
+
+    closeFreshMealDialog();
+  };
+
+  const handleRegenerateLatestMeal = () => {
+    toast.info("Regenerate option coming soon.");
   };
 
   const generateMeal = async () => {
@@ -341,6 +436,10 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
           ingredients: Array.isArray(meal.ingredients) ? meal.ingredients : []
         }));
         setGeneratedMeals(convertedMeals);
+        if (convertedMeals.length > 0) {
+          setLatestGeneratedMeal(convertedMeals[0]);
+          setShowFreshMealDialog(true);
+        }
       }
       
       logger.debug('Meal generated successfully, calling onMealGenerated callback');
@@ -373,47 +472,8 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Plan Status Card */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-background">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                {getCurrentPlanDisplay().name}
-              </CardTitle>
-              <CardDescription>
-                Weekly meals: {weeklyUsage} used
-              </CardDescription>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <Badge variant="outline" className="text-primary border-primary/20">
-                {getCurrentPlanDisplay().price}
-              </Badge>
-              {/* Cancellation Notice */}
-              {subscription?.cancellation_requested_at && subscription?.plan !== 'free' && subscription?.plan !== 'admin' && (
-                <div className="p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md max-w-[180px]">
-                  <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
-                    ⚠️ Cancelled
-                  </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
-                    {subscription?.current_period_end 
-                      ? `Ends ${new Date(subscription.current_period_end).toLocaleDateString('ro-RO', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          timeZone: 'Europe/Bucharest'
-                        })}`
-                      : 'Ends at period end'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
       {/* Subtle Limit Warnings */}
-      {isWeeklyLimitReached && planLimits && planLimits.meals_per_week !== null && (
+      {!subscriptionLoading && isWeeklyLimitReached && planLimits && planLimits.meals_per_week !== null && (
         <SubtlePlanPrompt
           message={`Weekly limit reached (${activity?.weekly_meals_used || 0}/${planLimits.meals_per_week})`}
           onUpgrade={() => setShowUpgrade(true)}
@@ -421,7 +481,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
         />
       )}
 
-      {!hasFeature('advanced_recipes') && (
+      {!subscriptionLoading && !hasFeature('advanced_recipes') && (
         <SubtlePlanPrompt
           message="Advanced recipes available with Beginner Plan"
           onUpgrade={() => setShowUpgrade(true)}
@@ -429,7 +489,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
         />
       )}
 
-      {isNearIngredientLimit && !isIngredientLimitReached && (
+      {!subscriptionLoading && isNearIngredientLimit && !isIngredientLimitReached && (
         <SubtlePlanPrompt
           message={`Ingredient limit: ${ingredients.length}/${ingredientLimit} used`}
           onUpgrade={() => setShowUpgrade(true)}
@@ -437,7 +497,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
         />
       )}
 
-      {isIngredientLimitReached && (
+      {!subscriptionLoading && isIngredientLimitReached && (
         <SubtlePlanPrompt
           message={`Ingredient limit reached (${ingredients.length}/${ingredientLimit})`}
           onUpgrade={() => setShowUpgrade(true)}
@@ -453,11 +513,11 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
       </div>
 
       <div className="space-y-6">
-        {/* Add New Ingredient Section */}
-        <AddIngredientSection />
-
         {/* Meal Generation Section */}
         <div className="space-y-4">
+          <AddIngredientSection variant="banner" className="mt-2" />
+          <AddIngredientSection variant="mobile" className="mt-2" />
+
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
             <Label className="text-base font-medium">Create Your Perfect Meal</Label>
@@ -472,110 +532,112 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
                 />
               </div>
             </div>
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-6">
-              <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
-                <Sparkles className="w-4 h-4" />
-                <span>Build your perfect meal with AI!</span>
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-card/80 p-6 shadow-[0_40px_120px_rgba(5,8,20,0.7)] backdrop-blur-2xl">
+              <div className="pointer-events-none absolute inset-0 opacity-70">
+                <div className="absolute -top-6 -left-10 h-40 w-40 bg-primary/25 blur-[100px]" />
+                <div className="absolute bottom-0 right-0 h-48 w-48 bg-accent/20 blur-[120px]" />
               </div>
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                Search for ingredients, add them with quantities, set your targets, and let AI generate a delicious, balanced meal for you.
-              </p>
+              <div className="relative space-y-6">
+                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Build your perfect meal with AI!</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Search for ingredients, add them with quantities, set your targets, and let AI generate a delicious, balanced meal for you.
+                </p>
               
-              {/* Ingredient Search Input */}
-              <div className="space-y-4">
-                <IngredientSearchInput 
-                  onSelect={handleIngredientSelect}
-                  placeholder="Search for ingredients from database..."
-                />
-              </div>
+                {/* Ingredient Search Input */}
+                <div className="space-y-4">
+                  <IngredientSearchInput 
+                    onSelect={handleIngredientSelect}
+                    placeholder="Search for ingredients from database..."
+                  />
+                </div>
               
-              {/* Ingredient Generation Form */}
-              <div className="space-y-4">
-                {/* Selected Ingredient Display */}
-                {newIngredient.name && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Selected Ingredient</Label>
-                    <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-md p-3">
-                      <span className="font-medium text-primary">{newIngredient.name}</span>
-                      <Button
-                        onClick={() => setNewIngredient({ name: "", quantity: "", unit: "grams" })}
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-primary/10"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                {/* Ingredient Generation Form */}
+                <div className="space-y-4">
+                  {/* Selected Ingredient Display */}
+                  {newIngredient.name && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Selected Ingredient</Label>
+                      <div className="flex items-center justify-between rounded-xl border border-white/10 bg-secondary/60 p-3 shadow-inner">
+                        <span className="font-medium text-primary">{newIngredient.name}</span>
+                        <Button
+                          onClick={() => setNewIngredient({ name: "", quantity: "", unit: "grams" })}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:bg-white/10"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
                 
-                {/* Quantity and Unit Row */}
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-3">
-                    <Label className="text-sm">Quantity</Label>
-                    <Input
-                      placeholder="300"
-                      value={newIngredient.quantity}
-                      onChange={(e) => setNewIngredient({ ...newIngredient, quantity: e.target.value })}
-                    />
-                  </div>
-                  <div className="col-span-4">
-                    <Label className="text-sm">Unit</Label>
-                    <Select value={newIngredient.unit} onValueChange={(value) => setNewIngredient({ ...newIngredient, unit: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {units.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-5">
-                    <Button 
-                      onClick={addIngredient} 
-                      size="sm" 
-                      className={`w-full font-semibold transition-all duration-300 ${
-                        isIngredientLimitReached 
+                  {/* Quantity and Unit Row */}
+                  <div className="grid grid-cols-12 gap-2 items-end md:gap-3">
+                    <div className="col-span-4 md:col-span-3">
+                      <Label className="text-sm">Quantity</Label>
+                      <Input
+                        placeholder="300"
+                        value={newIngredient.quantity}
+                        onChange={(e) => setNewIngredient({ ...newIngredient, quantity: e.target.value })}
+                        className="h-10 text-sm md:h-11 md:text-base"
+                      />
+                    </div>
+                    <div className="col-span-4 md:col-span-4">
+                      <Label className="text-sm">Unit</Label>
+                      <Select value={newIngredient.unit} onValueChange={(value) => setNewIngredient({ ...newIngredient, unit: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {units.map((unit) => (
+                            <SelectItem key={unit} value={unit}>
+                              {unit}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-4 md:col-span-5">
+                      <Button 
+                        onClick={addIngredient} 
+                        size="sm" 
+                        className={`w-full h-10 text-xs md:text-sm md:h-11 font-semibold transition-all duration-300 ${
+                          isIngredientLimitReached 
                           ? "bg-muted text-muted-foreground cursor-not-allowed" 
                           : !newIngredient.name.trim()
                           ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-                      }`}
-                      disabled={isIngredientLimitReached || !newIngredient.name.trim()}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      {isIngredientLimitReached ? "Limit Reached" : "Add to Recipe"}
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Ingredients List */}
-                {ingredients.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Added Ingredients:</Label>
-                    <div className="space-y-2">
-                      {ingredients.map((ingredient, index) => (
-                        <div key={index} className="flex items-center justify-between bg-muted/50 rounded-md p-2">
-                          <span className="text-sm">
-                            {ingredient.quantity} {ingredient.unit} {ingredient.name}
-                          </span>
-                          <Button
-                            onClick={() => removeIngredient(index)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
+                          : "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-[#0A0F0A] shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                        }`}
+                        disabled={isIngredientLimitReached || !newIngredient.name.trim()}
+                      >
+                        {isIngredientLimitReached ? "Limit Reached" : "+ Add"}
+                      </Button>
                     </div>
                   </div>
-                )}
+                
+                  {/* Ingredients List trigger */}
+                  <div className="space-y-2">
+                    <Label className="text-sm">Added Ingredients</Label>
+                    {ingredients.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between rounded-lg border-primary/30 text-primary hover:bg-primary/10"
+                        onClick={() => setShowIngredientsDialog(true)}
+                      >
+                        <span>See added ingredients</span>
+                        <span className="text-xs text-muted-foreground">({ingredients.length})</span>
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No ingredients added yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Calorie Target */}
@@ -590,14 +652,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
                   className="w-32"
                 />
               </div>
-              ) : (
-                <div className="space-y-1">
-                  <Label className="text-base font-medium">Calorie Target</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Not needed in Easy Mode. Focus on how many people you&apos;re cooking for instead.
-                  </p>
-                </div>
-              )}
+              ) : null}
 
               {/* Macronutrient Targets */}
               {!isEasyMode ? (
@@ -645,14 +700,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
                   </p>
                 </CollapsibleContent>
               </Collapsible>
-              ) : (
-                <div className="space-y-1">
-                  <Label className="text-base font-medium">Macronutrient Targets</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Disabled in Easy Mode. Recipes will prioritize clear instructions and correct portions.
-                  </p>
-                </div>
-              )}
+              ) : null}
 
               {/* Servings Selection */}
               {isEasyMode && (
@@ -675,7 +723,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
               {/* Generate Button */}
               <Button
                 onClick={generateMeal}
-                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full h-12 rounded-xl bg-[#8AFF8A] text-[#0A0F0A] font-semibold shadow-[0_0_10px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-[#7DFFA3] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8AFF8A]/60 focus-visible:ring-offset-[#05070d]"
                 disabled={isGenerating || isWeeklyLimitReached || !user}
               >
                 <Sparkles className="h-4 w-4 mr-2" />
@@ -698,10 +746,69 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
       {/* Meal Detail Dialog */}
       <MealDetailDialog
+        meal={latestGeneratedMeal}
+        open={showFreshMealDialog && !!latestGeneratedMeal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeFreshMealDialog();
+          } else {
+            setShowFreshMealDialog(true);
+          }
+        }}
+        showActions
+        actions={{
+          onKeep: handleKeepLatestMeal,
+          onDelete: handleDeleteLatestMeal,
+          onSave: handleSaveLatestMeal,
+          onRegenerate: handleRegenerateLatestMeal,
+        }}
+      />
+
+      <MealDetailDialog
         meal={selectedMeal}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+
+      <Dialog open={showIngredientsDialog} onOpenChange={setShowIngredientsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Added Ingredients</DialogTitle>
+            <DialogDescription>
+              Review or remove the items you've queued for this meal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-72 overflow-y-auto">
+            {ingredients.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No ingredients added yet.</p>
+            ) : (
+              ingredients.map((ingredient, index) => (
+                <div
+                  key={`${ingredient.name}-${index}`}
+                  className="flex items-center justify-between rounded-lg border border-border bg-card/70 px-3 py-2 text-sm"
+                >
+                  <span>
+                    {ingredient.quantity} {ingredient.unit} {ingredient.name}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      removeIngredient(index);
+                      if (ingredients.length === 1) {
+                        setShowIngredientsDialog(false);
+                      }
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

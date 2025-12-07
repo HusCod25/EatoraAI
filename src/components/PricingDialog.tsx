@@ -42,7 +42,7 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
   const planPrices: Record<string, number> = {
     'free': 0,
     'beginner': 4.99,
-    'chef': 14.99,
+    'chef': 9.99,
     'unlimited': 29.99,
     'admin': 999 // Admin is highest (cannot upgrade from)
   };
@@ -189,6 +189,7 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
         "GPT-4o-mini (20 meals/day limit)"
       ],
       planKey: 'free' as const,
+      recommended: false,
     },
     {
       name: "Beginner Plan",
@@ -204,11 +205,12 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
         "GPT-4o-mini"
       ],
       planKey: 'beginner' as const,
+      recommended: false,
     },
     {
       name: "Chef Plan",
-      monthlyPrice: 14.99,
-      yearlyPrice: 149.9,
+      monthlyPrice: 9.99,
+      yearlyPrice: 99.9,
       icon: <Crown className="h-5 w-5" />,
       gradient: "from-purple-500 to-pink-500",
       features: [
@@ -219,6 +221,7 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
         "GPT-4o"
       ],
       planKey: 'chef' as const,
+      recommended: true,
     },
     {
       name: "Unlimited Plan",
@@ -234,6 +237,7 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
         "GPT-4o"
       ],
       planKey: 'unlimited' as const,
+      recommended: false,
     }
   ];
 
@@ -241,13 +245,6 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
     const priceValue = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
     const price = formatPrice(priceValue);
     const period = plan.planKey === 'free' ? '' : isYearly ? '/year' : '/month';
-    const popular = plan.planKey === 'beginner'
-      ? subscription?.plan === 'free'
-      : plan.planKey === 'chef'
-        ? subscription?.plan === 'beginner'
-        : plan.planKey === 'unlimited'
-          ? subscription?.plan === 'chef'
-          : false;
 
     const buttonText = plan.planKey === 'free'
       ? subscription?.plan === 'free'
@@ -261,7 +258,6 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
       ...plan,
       price,
       period,
-      popular,
       buttonText,
     };
   });
@@ -303,11 +299,11 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-xl p-6 border-2 transition-all duration-200 hover:shadow-lg ${
+              className={`relative rounded-xl p-6 border-2 transition-all duration-200 hover:shadow-lg transform ${
                 isCurrent(plan.planKey)
                   ? 'border-green-500 shadow-lg bg-green-50 dark:bg-green-950/20'
-                  : plan.popular 
-                    ? 'border-primary shadow-lg scale-105' 
+                  : plan.recommended 
+                    ? 'border-primary shadow-[0_20px_45px_rgba(34,197,94,0.35)] scale-[1.02] -translate-y-1 bg-primary/5'
                     : 'border-border hover:border-primary/50'
               }`}
             >
@@ -318,10 +314,10 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
                   </Badge>
                 </div>
               )}
-              {plan.popular && !isCurrent(plan.planKey) && (
+              {plan.recommended && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground px-3 py-1">
-                    Most Popular
+                  <Badge className="bg-amber-500 text-white px-2 py-0.5 text-[0.7rem] uppercase tracking-wide shadow-md">
+                    Recommended
                   </Badge>
                 </div>
               )}
@@ -402,8 +398,8 @@ export const PricingDialog = ({ open, onOpenChange, onOpenSettings }: PricingDia
                   className={`w-full ${
                     !canChangeToPlan(plan.planKey)
                       ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                      : plan.popular 
-                        ? 'bg-primary hover:bg-primary/90' 
+                      : plan.recommended 
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md' 
                         : 'variant-outline hover:bg-primary hover:text-primary-foreground'
                   }`}
                   disabled={isCurrent(plan.planKey) || loading !== null || !canChangeToPlan(plan.planKey)}

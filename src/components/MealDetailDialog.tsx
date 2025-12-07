@@ -1,4 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Check, Trash2, Bookmark, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Clock, Utensils } from "lucide-react";
@@ -24,13 +26,22 @@ interface Meal {
   tags?: string[];
 }
 
+interface MealActions {
+  onKeep?: () => void;
+  onDelete?: () => void;
+  onSave?: () => void;
+  onRegenerate?: () => void;
+}
+
 interface MealDetailDialogProps {
   meal: Meal | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  showActions?: boolean;
+  actions?: MealActions;
 }
 
-export const MealDetailDialog = ({ meal, open, onOpenChange }: MealDetailDialogProps) => {
+export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false, actions }: MealDetailDialogProps) => {
   if (!meal) return null;
 
   // Sanitize meal data for display
@@ -89,9 +100,55 @@ export const MealDetailDialog = ({ meal, open, onOpenChange }: MealDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[82vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-card shadow-[0_35px_120px_rgba(3,6,20,0.75)]">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">{sanitizedMeal.title}</DialogTitle>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <DialogTitle className="text-2xl font-bold text-foreground">{sanitizedMeal.title}</DialogTitle>
+            {showActions && actions && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={actions.onKeep}
+                  disabled={!actions.onKeep}
+                  className="rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+                >
+                  <Check className="mr-1 h-4 w-4" />
+                  Keep
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={actions.onDelete}
+                  disabled={!actions.onDelete}
+                  className="rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  Delete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={actions.onSave}
+                  disabled={!actions.onSave}
+                  className="rounded-full border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  <Bookmark className="mr-1 h-4 w-4" />
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={actions.onRegenerate}
+                  disabled={!actions.onRegenerate}
+                  className="rounded-full border-accent/50 text-accent hover:bg-accent/10"
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Regenerate
+                </Button>
+              </div>
+            )}
+          </div>
           {sanitizedMeal.description && (
             <p className="text-muted-foreground mt-2 leading-relaxed">{sanitizedMeal.description}</p>
           )}

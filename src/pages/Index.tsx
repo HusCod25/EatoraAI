@@ -62,43 +62,35 @@ const Index = () => {
 
   return (
     <Layout>
-      {/* Header */}
-      <Header className="h-16 px-6 flex items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <ChefHat className="h-4 w-4 text-white" />
+      <Header className="flex items-start justify-start gap-3 lg:w-full">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-card/80 px-3 py-2 shadow-card">
+          <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
+            <ChefHat className="h-4 w-4 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-primary">
-              chompsy.ai
-            </h1>
-            <p className="text-xs text-muted-foreground">AI-Powered Meal Magic</p>
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-            <Sparkles className="h-3 w-3" />
-            MVP Version
+            <h1 className="text-lg font-bold text-primary">EatoraAI™</h1>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              AI Meal Magic
+            </p>
           </div>
         </div>
       </Header>
 
       {/* Desktop Layout */}
       <MainContent className="hidden lg:flex">
-        {/* Left Sidebar - Saved Meals */}
-        <Sidebar>
-          <SavedMeals ref={savedMealsRef} />
-        </Sidebar>
+        <div className="app-wrapper">
+          <Sidebar className="column-card column-left">
+            <SavedMeals ref={savedMealsRef} />
+          </Sidebar>
 
-        {/* Center Panel - Meal Generator */}
-        <CenterPanel className="max-w-4xl mx-auto">
-          <MealGenerator onMealGenerated={handleMealGenerated} />
-        </CenterPanel>
+          <CenterPanel className="column-card column-center">
+            <MealGenerator onMealGenerated={handleMealGenerated} />
+          </CenterPanel>
 
-        {/* Right Sidebar - User Account */}
-        <Sidebar>
-          <UserAccount />
-        </Sidebar>
+          <Sidebar className="column-card column-right">
+            <UserAccount />
+          </Sidebar>
+        </div>
       </MainContent>
 
       {/* Mobile Layout */}
