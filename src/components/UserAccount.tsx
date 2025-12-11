@@ -17,6 +17,7 @@ import { PlanBadge } from "@/components/ui/plan-badge";
 import { ThemeChanger } from "./ThemeChanger";
 import { MyAddedIngredients } from "./MyAddedIngredients";
 import { AddIngredientSection } from "@/components/AddIngredientSection";
+import { AddIngredientModal } from "@/components/AddIngredientModal";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserProfile {
@@ -34,6 +35,7 @@ export const UserAccount = () => {
   const [showPricing, setShowPricing] = useState(false);
   const [settingsScrollToCancel, setSettingsScrollToCancel] = useState(false);
   const [showMyIngredients, setShowMyIngredients] = useState(false);
+  const [showAddIngredientModal, setShowAddIngredientModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const hasShownSuccessToast = useRef(false);
@@ -197,6 +199,11 @@ export const UserAccount = () => {
   const handleLogout = async () => {
     toast.success("Logging out...");
     await signOutRobustly(supabase);
+  };
+
+  const handleOpenAddIngredient = () => {
+    setShowMyIngredients(false);
+    setShowAddIngredientModal(true);
   };
 
   if (loading) {
@@ -465,9 +472,14 @@ export const UserAccount = () => {
               Track the status of your ingredient submissions
             </DialogDescription>
           </DialogHeader>
-          <MyAddedIngredients />
+          <MyAddedIngredients onRequestAddIngredient={handleOpenAddIngredient} />
         </DialogContent>
       </Dialog>
+
+      <AddIngredientModal 
+        open={showAddIngredientModal} 
+        onOpenChange={setShowAddIngredientModal} 
+      />
     </div>
   );
 };

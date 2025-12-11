@@ -14,6 +14,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import { AdminPanel } from "./components/AdminPanel";
 import { AdminUsers } from "./pages/AdminUsers";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +39,8 @@ const App = () => (
                 />
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route 
                   path="/account" 

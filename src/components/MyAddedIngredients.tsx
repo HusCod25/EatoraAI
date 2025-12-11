@@ -33,7 +33,11 @@ interface UserIngredient {
   reviewed_at?: string;
 }
 
-export const MyAddedIngredients = () => {
+interface MyAddedIngredientsProps {
+  onRequestAddIngredient?: () => void;
+}
+
+export const MyAddedIngredients = ({ onRequestAddIngredient }: MyAddedIngredientsProps) => {
   const { user } = useAuth();
   const [ingredients, setIngredients] = useState<UserIngredient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +146,16 @@ export const MyAddedIngredients = () => {
             <p className="text-muted-foreground mb-4">
               Start contributing to our ingredient database by adding new ingredients!
             </p>
-            <Button onClick={() => window.location.href = '/'} variant="outline">
+            <Button
+              onClick={() => {
+                if (onRequestAddIngredient) {
+                  onRequestAddIngredient();
+                } else {
+                  window.location.href = '/';
+                }
+              }}
+              variant="outline"
+            >
               Add Your First Ingredient
             </Button>
           </CardContent>

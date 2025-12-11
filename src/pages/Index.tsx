@@ -51,6 +51,11 @@ const Index = () => {
     }, 3000);
   };
 
+  const handleMealsUpdated = () => {
+    logger.debug('Meals updated - refreshing SavedMeals');
+    savedMealsRef.current?.refreshMeals();
+  };
+
   useEffect(() => {
     setVisitedTabs((prev) => {
       if (prev.has(activeTab)) return prev;
@@ -63,7 +68,7 @@ const Index = () => {
   const mobileTabs: { id: "generate" | "saved" | "profile"; render: () => JSX.Element }[] = [
     {
       id: "generate",
-      render: () => <MealGenerator onMealGenerated={handleMealGenerated} />
+      render: () => <MealGenerator onMealGenerated={handleMealGenerated} onMealsUpdated={handleMealsUpdated} />
     },
     {
       id: "saved",
@@ -99,7 +104,7 @@ const Index = () => {
           </Sidebar>
 
           <CenterPanel className="column-card column-center">
-            <MealGenerator onMealGenerated={handleMealGenerated} />
+            <MealGenerator onMealGenerated={handleMealGenerated} onMealsUpdated={handleMealsUpdated} />
           </CenterPanel>
 
           <Sidebar className="column-card column-right">

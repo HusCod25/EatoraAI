@@ -18,6 +18,7 @@ import { IngredientSearchInput } from "@/components/IngredientSearchInput";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 
@@ -48,14 +49,25 @@ interface GeneratedMeal {
   macro_warning?: string;
 }
 
-interface MealGeneratorProps {
-  onMealGenerated?: () => void;
+interface GenerationConfig {
+  ingredients: Ingredient[];
+  calories: string;
+  protein: string;
+  carbs: string;
+  fats: string;
+  isEasyMode: boolean;
+  servings: string;
 }
 
-export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
+interface MealGeneratorProps {
+  onMealGenerated?: () => void;
+  onMealsUpdated?: () => void;
+}
+
+export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGeneratorProps) => {
   const { user } = useAuth();
   const { planLimits, checkLimit, hasFeature, getCurrentPlanDisplay, subscription, loading: subscriptionLoading } = useSubscription();
-  const { activity, incrementMealsGenerated } = useUserActivity();
+  const { activity, incrementMealsGenerated, refreshActivity } = useUserActivity();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newIngredient, setNewIngredient] = useState({ name: "", quantity: "", unit: "grams" });
   const [calories, setCalories] = useState("2000");
@@ -73,8 +85,50 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
   const [latestGeneratedMeal, setLatestGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [showFreshMealDialog, setShowFreshMealDialog] = useState(false);
   const [showIngredientsDialog, setShowIngredientsDialog] = useState(false);
+  const [lastGenerationConfig, setLastGenerationConfig] = useState<GenerationConfig | null>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [showGenerationDialog, setShowGenerationDialog] = useState(false);
 
   const units = ["grams", "kg", "ounces", "pieces", "cups", "tbsp", "tsp", "ml", "liters"];
+
+  const MEALS_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
+  const getMealsCacheKey = () => (user ? `generated_meals_${user.id}` : null);
+
+  const hydrateMealsFromCache = () => {
+    if (typeof window === "undefined") return;
+    const cacheKey = getMealsCacheKey();
+    if (!cacheKey) return;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (!cached) return;
+      const parsed = JSON.parse(cached);
+      if (!parsed || typeof parsed !== "object") return;
+      if (Date.now() - (parsed.timestamp || 0) > MEALS_CACHE_TTL) return;
+      if (Array.isArray(parsed.meals) && parsed.meals.length > 0) {
+        setGeneratedMeals(parsed.meals);
+      }
+    } catch (error) {
+      console.warn("Failed to hydrate meals cache", error);
+    }
+  };
+
+  const persistMealsToCache = (meals: GeneratedMeal[]) => {
+    if (typeof window === "undefined") return;
+    const cacheKey = getMealsCacheKey();
+    if (!cacheKey) return;
+    try {
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          timestamp: Date.now(),
+          meals,
+        })
+      );
+    } catch (error) {
+      console.warn("Failed to persist meals cache", error);
+    }
+  };
 
   // Fetch generated meals from database
   const fetchGeneratedMeals = async () => {
@@ -96,6 +150,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
       }));
       
       setGeneratedMeals(convertedMeals);
+      persistMealsToCache(convertedMeals);
     } catch (error) {
       logger.error('Error fetching generated meals:', error);
     }
@@ -103,6 +158,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
   // Fetch generated meals on component mount
   useEffect(() => {
+    hydrateMealsFromCache();
     fetchGeneratedMeals();
   }, [user]);
 
@@ -111,6 +167,39 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
       setShowMacros(false);
     }
   }, [isEasyMode]);
+
+  useEffect(() => {
+    let progressInterval: number | undefined;
+
+    if (showGenerationDialog && isGenerating) {
+      setGenerationProgress((prev) => (prev <= 0 ? 2 : prev));
+      progressInterval = window.setInterval(() => {
+        setGenerationProgress((prev) => {
+          if (prev >= 90) return prev;
+          const increment = Math.floor(Math.random() * 4) + 1; // slower creep, whole numbers
+          return Math.min(prev + increment, 90);
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (progressInterval) clearInterval(progressInterval);
+    };
+  }, [showGenerationDialog, isGenerating]);
+
+  useEffect(() => {
+    let hideTimeout: number | undefined;
+    if (showGenerationDialog && !isGenerating) {
+      setGenerationProgress(100);
+      hideTimeout = window.setTimeout(() => {
+        setShowGenerationDialog(false);
+        setGenerationProgress(0);
+      }, 600);
+    }
+    return () => {
+      if (hideTimeout) clearTimeout(hideTimeout);
+    };
+  }, [isGenerating, showGenerationDialog]);
 
  const handleIngredientSelect = (ingredient: Ingredient) => {
    setNewIngredient({
@@ -164,6 +253,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
       toast.success("Meal deleted");
       await fetchGeneratedMeals();
+      onMealsUpdated?.();
     } catch (error) {
       logger.error('Error deleting latest meal:', error);
       toast.error("Failed to delete meal");
@@ -221,6 +311,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
       toast.success("Meal saved successfully!");
       await fetchGeneratedMeals();
+      onMealsUpdated?.();
     } catch (error) {
       logger.error('Error saving latest meal:', error);
       toast.error("Failed to save meal");
@@ -230,11 +321,21 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
     closeFreshMealDialog();
   };
 
-  const handleRegenerateLatestMeal = () => {
-    toast.info("Regenerate option coming soon.");
+  const handleRegenerateLatestMeal = async () => {
+    if (isGenerating) {
+      toast.info("Please wait for the current meal to finish generating.");
+      return;
+    }
+
+    if (!lastGenerationConfig) {
+      toast.error("We couldn't find your original ingredients. Please generate a meal first.");
+      return;
+    }
+
+    await generateMeal(lastGenerationConfig);
   };
 
-  const generateMeal = async () => {
+  const generateMeal = async (overrideConfig?: GenerationConfig) => {
     // ==== RATE LIMIT LOGGING ====
     console.log("%c[DEBUG] generateMeal() CALLED", "color: yellow; font-size: 18px");
 
@@ -271,6 +372,28 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
       return;
     }
 
+    closeFreshMealDialog();
+
+    const generationConfig = overrideConfig ?? {
+      ingredients,
+      calories,
+      protein,
+      carbs,
+      fats,
+      isEasyMode,
+      servings,
+    };
+
+    const {
+      ingredients: configIngredients,
+      calories: configCalories,
+      protein: configProtein,
+      carbs: configCarbs,
+      fats: configFats,
+      isEasyMode: configIsEasyMode,
+      servings: configServings,
+    } = generationConfig;
+
     // Check weekly meal limit
     if (!checkLimit('meals_per_week', activity?.weekly_meals_used || 0)) {
       setShowUpgrade(true);
@@ -278,25 +401,38 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
     }
 
     // Validate inputs
-    if (ingredients.length === 0) {
+    if (configIngredients.length === 0) {
       toast.error("Please add at least one ingredient");
       return;
     }
 
-    const calorieTarget = parseInt(calories);
-    if (!isEasyMode && (!calories || isNaN(calorieTarget) || calorieTarget <= 0)) {
+    const calorieTarget = parseInt(configCalories);
+    if (!configIsEasyMode && (!configCalories || isNaN(calorieTarget) || calorieTarget <= 0)) {
       toast.error("Please enter a valid calorie target");
       return;
     }
 
-    const servingsValue = Math.max(1, Math.min(10, parseInt(servings || "2", 10) || 2));
+    const servingsValue = Math.max(1, Math.min(10, parseInt(configServings || "2", 10) || 2));
 
+    const configSnapshot: GenerationConfig = {
+      ingredients: configIngredients.map((ingredient) => ({ ...ingredient })),
+      calories: configCalories,
+      protein: configProtein,
+      carbs: configCarbs,
+      fats: configFats,
+      isEasyMode: configIsEasyMode,
+      servings: configServings,
+    };
+    setLastGenerationConfig(configSnapshot);
+
+    setShowGenerationDialog(true);
+    setGenerationProgress(2);
     setIsGenerating(true);
     
     try {
       // Fetch nutritional data for each ingredient from database
       const ingredientsWithNutrition = await Promise.all(
-        ingredients.map(async (ingredient) => {
+        configIngredients.map(async (ingredient) => {
           try {
             // Convert quantity to grams for database lookup
             let quantityInGrams = parseFloat(ingredient.quantity);
@@ -386,11 +522,11 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
       const { data, error } = await supabase.functions.invoke('generate-meal', {
         body: {
           ingredients: ingredientsWithNutrition,
-          calories: isEasyMode ? undefined : calorieTarget,
-          protein: !isEasyMode && protein ? parseInt(protein, 10) : undefined,
-          carbs: !isEasyMode && carbs ? parseInt(carbs, 10) : undefined,
-          fats: !isEasyMode && fats ? parseInt(fats, 10) : undefined,
-          mode: isEasyMode ? "easy" : "nutri",
+          calories: configIsEasyMode ? undefined : calorieTarget,
+          protein: !configIsEasyMode && configProtein ? parseInt(configProtein, 10) : undefined,
+          carbs: !configIsEasyMode && configCarbs ? parseInt(configCarbs, 10) : undefined,
+          fats: !configIsEasyMode && configFats ? parseInt(configFats, 10) : undefined,
+          mode: configIsEasyMode ? "easy" : "nutri",
           servings: servingsValue
         }
       });
@@ -410,6 +546,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
       try {
         await incrementMealsGenerated();
+        await refreshActivity();
       } catch (err) {
         if (String(err instanceof Error ? err.message : err).includes("Rate limit")) {
           alert("⚠️ Too many requests. Please wait a few seconds and try again!");
@@ -469,6 +606,14 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
   const ingredientLimit = planLimits?.max_ingredients || 6;
   const isIngredientLimitReached = planLimits && ingredients.length >= ingredientLimit && planLimits.max_ingredients !== null;
   const isNearIngredientLimit = planLimits && planLimits.max_ingredients !== null && ingredients.length >= (planLimits.max_ingredients - 1);
+
+  const progressMessage = (() => {
+    if (generationProgress < 20) return "Analyzing your pantry and targets...";
+    if (generationProgress < 40) return "Scouting new flavor combos...";
+    if (generationProgress < 60) return "Balancing macros for perfection...";
+    if (generationProgress < 80) return "Writing step-by-step instructions...";
+    return "Adding finishing touches to keep it unique...";
+  })();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -714,7 +859,7 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
 
               {/* Generate Button */}
               <Button
-                onClick={generateMeal}
+                onClick={() => generateMeal()}
                 className="w-full h-12 rounded-xl bg-[#8AFF8A] text-[#0A0F0A] font-semibold shadow-[0_0_10px_rgba(0,0,0,0.15)] transition-all duration-200 hover:bg-[#7DFFA3] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8AFF8A]/60 focus-visible:ring-offset-[#05070d]"
                 disabled={isGenerating || isWeeklyLimitReached || !user}
               >
@@ -798,6 +943,39 @@ export const MealGenerator = ({ onMealGenerated }: MealGeneratorProps) => {
                 </div>
               ))
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showGenerationDialog} onOpenChange={() => {}}>
+        <DialogContent
+          hideCloseButton
+          className="max-w-sm rounded-3xl border border-primary/30 bg-card/95 text-center shadow-[0_30px_120px_rgba(5,9,20,0.65)]"
+        >
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Cooking up your meal...</DialogTitle>
+            <DialogDescription>
+              Hang tight while we remix your ingredients into something different.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 pt-2">
+            <div
+              className="relative overflow-hidden rounded-2xl border border-primary/40 bg-background/80 py-4 text-sm font-semibold uppercase tracking-wide text-primary shadow-inner"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={generationProgress}
+            >
+              <span className="relative z-10">
+                {generationProgress >= 100 ? "Plating..." : `Charging ${Math.round(generationProgress)}%`}
+              </span>
+              <span
+                className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary via-emerald-300 to-green-500 transition-all duration-300"
+                style={{ width: `${generationProgress}%` }}
+              />
+            </div>
+            <Progress value={generationProgress} className="h-3" />
+            <p className="text-sm text-muted-foreground">{progressMessage}</p>
           </div>
         </DialogContent>
       </Dialog>
