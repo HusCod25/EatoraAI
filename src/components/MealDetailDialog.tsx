@@ -31,6 +31,7 @@ interface MealActions {
   onDelete?: () => void;
   onSave?: () => void;
   onRegenerate?: () => void;
+  onRegenerateAndDelete?: () => void;
 }
 
 interface MealDetailDialogProps {
@@ -145,6 +146,16 @@ export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false
                 >
                   <RefreshCw className="mr-1 h-4 w-4" />
                   Regenerate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={actions.onRegenerateAndDelete}
+                  disabled={!actions.onRegenerateAndDelete}
+                  className="rounded-full border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Regenerate & Delete
                 </Button>
               </div>
             )}

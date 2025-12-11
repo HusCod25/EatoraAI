@@ -335,6 +335,44 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
     await generateMeal(lastGenerationConfig);
   };
 
+  const handleRegenerateAndDeleteLatestMeal = async () => {
+    if (isGenerating) {
+      toast.info("Please wait for the current meal to finish generating.");
+      return;
+    }
+
+    if (!lastGenerationConfig) {
+      toast.error("We couldn't find your original ingredients. Please generate a meal first.");
+      return;
+    }
+
+    // Delete the old meal from the generated tab before generating a new one
+    if (latestGeneratedMeal && user) {
+      try {
+        const { error } = await supabase
+          .from('generated_meals')
+          .delete()
+          .eq('id', latestGeneratedMeal.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          logger.error('Error deleting old meal during regeneration:', error);
+          toast.error("Failed to delete old meal");
+          return;
+        } else {
+          await fetchGeneratedMeals();
+          onMealsUpdated?.();
+        }
+      } catch (error) {
+        logger.error('Error deleting old meal during regeneration:', error);
+        toast.error("Failed to delete old meal");
+        return;
+      }
+    }
+
+    await generateMeal(lastGenerationConfig);
+  };
+
   const generateMeal = async (overrideConfig?: GenerationConfig) => {
     // ==== RATE LIMIT LOGGING ====
     console.log("%c[DEBUG] generateMeal() CALLED", "color: yellow; font-size: 18px");
@@ -898,6 +936,7 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
           onDelete: handleDeleteLatestMeal,
           onSave: handleSaveLatestMeal,
           onRegenerate: handleRegenerateLatestMeal,
+          onRegenerateAndDelete: handleRegenerateAndDeleteLatestMeal,
         }}
       />
 
