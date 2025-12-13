@@ -30,6 +30,7 @@ interface Profile {
   privacy_accepted_at?: string; // GDPR: When user accepted privacy policy
   marketing_consent_at?: string; // GDPR: When user consented to marketing
   marketing_opt_in?: boolean; // GDPR: Marketing consent flag
+  withdrawal_waiver_accepted_at?: string; // EU Consumer Rights: When user waived withdrawal right
 }
 
 interface SettingsDialogProps {
@@ -86,7 +87,7 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("phone_number, username, avatar_url, username_updated_at, email, terms_accepted_at, privacy_accepted_at, marketing_consent_at, marketing_opt_in")
+        .select("phone_number, username, avatar_url, username_updated_at, email, terms_accepted_at, privacy_accepted_at, marketing_consent_at, marketing_opt_in, withdrawal_waiver_accepted_at")
         .eq("user_id", user.id)
         .maybeSingle();
 

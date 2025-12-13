@@ -22,6 +22,7 @@ const Register = () => {
   // Checkbox states
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [acceptWithdrawalWaiver, setAcceptWithdrawalWaiver] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   
   const navigate = useNavigate();
@@ -42,8 +43,8 @@ const Register = () => {
       return;
     }
 
-    if (!acceptTerms || !acceptPrivacy) {
-      toast.error("You must accept the Terms & Conditions and Privacy Policy to continue.");
+    if (!acceptTerms || !acceptPrivacy || !acceptWithdrawalWaiver) {
+      toast.error("You must accept the Terms & Conditions, Privacy Policy, and Withdrawal Waiver to continue.");
       return;
     }
 
@@ -70,7 +71,8 @@ const Register = () => {
             marketing_opt_in: marketingOptIn,
             username: username,
             terms_accepted: 'true', // GDPR: User accepted terms
-            privacy_accepted: 'true' // GDPR: User accepted privacy policy
+            privacy_accepted: 'true', // GDPR: User accepted privacy policy
+            withdrawal_waiver_accepted: 'true' // EU Consumer Rights: User waived 14-day withdrawal
           }
         }
       });
@@ -91,6 +93,7 @@ const Register = () => {
               marketing_opt_in: marketingOptIn,
               terms_accepted_at: consentTimestamp, // GDPR: Track when terms were accepted
               privacy_accepted_at: consentTimestamp, // GDPR: Track when privacy policy was accepted
+              withdrawal_waiver_accepted_at: consentTimestamp, // EU Consumer Rights: Track withdrawal waiver
               marketing_consent_at: marketingOptIn ? consentTimestamp : null, // GDPR: Track marketing consent
               username_updated_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -225,6 +228,24 @@ const Register = () => {
               
               <div className="flex items-start space-x-3">
                 <Checkbox
+                  id="acceptWithdrawalWaiver"
+                  checked={acceptWithdrawalWaiver}
+                  onCheckedChange={(checked) => setAcceptWithdrawalWaiver(checked as boolean)}
+                  className="mt-1"
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <Label
+                    htmlFor="acceptWithdrawalWaiver"
+                    className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    I consent to immediate access to Eatora and acknowledge that I waive my right of withdrawal (14-day refund) once the service starts.
+                    <span className="text-destructive ml-1">*</span>
+                  </Label>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <Checkbox
                   id="marketingOptIn"
                   checked={marketingOptIn}
                   onCheckedChange={(checked) => setMarketingOptIn(checked as boolean)}
@@ -247,7 +268,7 @@ const Register = () => {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loading || !acceptTerms || !acceptPrivacy}
+              disabled={loading || !acceptTerms || !acceptPrivacy || !acceptWithdrawalWaiver}
             >
               {loading ? "Creating account..." : "Create Account"}
             </Button>

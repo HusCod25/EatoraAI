@@ -12,7 +12,8 @@ ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS privacy_accepted_at TIMESTAMP WITH TIME ZONE,
-ADD COLUMN IF NOT EXISTS marketing_consent_at TIMESTAMP WITH TIME ZONE;
+ADD COLUMN IF NOT EXISTS marketing_consent_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS withdrawal_waiver_accepted_at TIMESTAMP WITH TIME ZONE;
 
 -- Create index on email for faster lookups
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
@@ -33,7 +34,8 @@ BEGIN
     marketing_opt_in,
     terms_accepted_at,
     privacy_accepted_at,
-    marketing_consent_at
+    marketing_consent_at,
+    withdrawal_waiver_accepted_at
   )
   VALUES (
     NEW.id,
@@ -43,7 +45,8 @@ BEGIN
     -- Set consent timestamps to now if user accepted during signup
     CASE WHEN NEW.raw_user_meta_data ->> 'terms_accepted' = 'true' THEN now() ELSE NULL END,
     CASE WHEN NEW.raw_user_meta_data ->> 'privacy_accepted' = 'true' THEN now() ELSE NULL END,
-    CASE WHEN (NEW.raw_user_meta_data ->> 'marketing_opt_in')::boolean = true THEN now() ELSE NULL END
+    CASE WHEN (NEW.raw_user_meta_data ->> 'marketing_opt_in')::boolean = true THEN now() ELSE NULL END,
+    CASE WHEN NEW.raw_user_meta_data ->> 'withdrawal_waiver_accepted' = 'true' THEN now() ELSE NULL END
   )
   ON CONFLICT (user_id) DO NOTHING;
   
@@ -104,5 +107,6 @@ COMMENT ON COLUMN public.profiles.email IS 'User email synced from auth.users fo
 COMMENT ON COLUMN public.profiles.terms_accepted_at IS 'Timestamp when user accepted Terms & Conditions (GDPR compliance)';
 COMMENT ON COLUMN public.profiles.privacy_accepted_at IS 'Timestamp when user accepted Privacy Policy (GDPR compliance)';
 COMMENT ON COLUMN public.profiles.marketing_consent_at IS 'Timestamp when user consented to marketing emails (GDPR compliance)';
+COMMENT ON COLUMN public.profiles.withdrawal_waiver_accepted_at IS 'Timestamp when user waived 14-day withdrawal right (EU Consumer Rights Directive compliance)';
 COMMENT ON COLUMN public.profiles.marketing_opt_in IS 'Boolean flag for marketing consent - EXISTING FIELD from earlier migration (GDPR compliance)';
 
