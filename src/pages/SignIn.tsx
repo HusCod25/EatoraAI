@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ChefHat } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cleanupAuthState } from "@/lib/authUtils";
+import { logger } from "@/lib/logger";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
