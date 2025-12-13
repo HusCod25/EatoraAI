@@ -68,7 +68,9 @@ const Register = () => {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             marketing_opt_in: marketingOptIn,
-            username: username
+            username: username,
+            terms_accepted: 'true', // GDPR: User accepted terms
+            privacy_accepted: 'true' // GDPR: User accepted privacy policy
           }
         }
       });
@@ -76,15 +78,20 @@ const Register = () => {
       if (error) {
         toast.error(error.message);
       } else if (data.user) {
-        // Update the profile with marketing preference and username
+        // Update the profile with marketing preference, username, and GDPR consent
         // Trigger should create profile automatically, but update it if needed
         try {
+          const consentTimestamp = new Date().toISOString();
           await supabase
             .from("profiles")
             .upsert({
               user_id: data.user.id,
               username: username,
+              email: email, // Store email for GDPR compliance
               marketing_opt_in: marketingOptIn,
+              terms_accepted_at: consentTimestamp, // GDPR: Track when terms were accepted
+              privacy_accepted_at: consentTimestamp, // GDPR: Track when privacy policy was accepted
+              marketing_consent_at: marketingOptIn ? consentTimestamp : null, // GDPR: Track marketing consent
               username_updated_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             }, {
