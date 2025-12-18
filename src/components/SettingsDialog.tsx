@@ -166,9 +166,11 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
     if (!user?.email) return;
     
     setLoading(true);
+    const appUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") || window.location.origin;
+    const redirectTo = `${appUrl}/reset-password`;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo,
       });
       
       if (error) throw error;

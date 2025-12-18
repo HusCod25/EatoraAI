@@ -17,9 +17,12 @@ const ForgotPassword = () => {
     e.preventDefault();
     setLoading(true);
 
+    const appUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") || window.location.origin;
+    const redirectTo = `${appUrl}/reset-password`;
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo,
       });
 
       if (error) {
