@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Settings, Star, LogOut, Shield, Package, Users, CheckCircle, XCircle } from "lucide-react";
+import { Settings, Star, LogOut, Shield, Package, Users, CheckCircle, XCircle, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import { ThemeChanger } from "./ThemeChanger";
 import { MyAddedIngredients } from "./MyAddedIngredients";
 import { AddIngredientSection } from "@/components/AddIngredientSection";
 import { AddIngredientModal } from "@/components/AddIngredientModal";
+import { PantryStaplesDialog } from "./PantryStaplesDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserProfile {
@@ -36,6 +37,7 @@ export const UserAccount = () => {
   const [settingsScrollToCancel, setSettingsScrollToCancel] = useState(false);
   const [showMyIngredients, setShowMyIngredients] = useState(false);
   const [showAddIngredientModal, setShowAddIngredientModal] = useState(false);
+  const [showPantryStaples, setShowPantryStaples] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const hasShownSuccessToast = useRef(false);
@@ -310,6 +312,15 @@ export const UserAccount = () => {
             <Package className="h-3 w-3 mr-1" />
             My Ingredients
           </Button>
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="h-8 px-3 text-xs"
+            onClick={() => setShowPantryStaples(true)}
+          >
+            <ListChecks className="h-3 w-3 mr-1" />
+            Pantry Staples
+          </Button>
           
           {subscription?.plan === 'admin' && (
             <>
@@ -475,6 +486,8 @@ export const UserAccount = () => {
           <MyAddedIngredients onRequestAddIngredient={handleOpenAddIngredient} />
         </DialogContent>
       </Dialog>
+
+      <PantryStaplesDialog open={showPantryStaples} onOpenChange={setShowPantryStaples} />
 
       <AddIngredientModal 
         open={showAddIngredientModal} 

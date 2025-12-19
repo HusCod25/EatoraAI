@@ -64,6 +64,17 @@ interface MealGeneratorProps {
   onMealsUpdated?: () => void;
 }
 
+interface PantryStapleRow {
+  default_quantity_grams: number | null;
+  ingredient: {
+    name: string | null;
+    calories: number | null;
+    protein: number | null;
+    carbs: number | null;
+    fat: number | null;
+  } | null;
+}
+
 export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGeneratorProps) => {
   const { user } = useAuth();
   const { planLimits, checkLimit, hasFeature, getCurrentPlanDisplay, subscription, loading: subscriptionLoading } = useSubscription();
@@ -127,6 +138,22 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
       );
     } catch (error) {
       console.warn("Failed to persist meals cache", error);
+    }
+  };
+
+  const fetchPantryStaples = async (): Promise<PantryStapleRow[]> => {
+    if (!user) return [];
+    try {
+      const { data, error } = await supabase
+        .from('pantry_staples')
+        .select('default_quantity_grams, ingredient:ingredient_id (name, calories, protein, carbs, fat)')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      return (data || []) as PantryStapleRow[];
+    } catch (err) {
+      logger.error('Error fetching pantry staples:', err);
+      return [];
     }
   };
 
@@ -469,7 +496,7 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
     
     try {
       // Fetch nutritional data for each ingredient from database
-      const ingredientsWithNutrition = await Promise.all(
+      let ingredientsWithNutrition = await Promise.all(
         configIngredients.map(async (ingredient) => {
           try {
             // Convert quantity to grams for database lookup
@@ -554,6 +581,34 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
           }
         })
       );
+
+      // Fetch pantry staples (auto-included) and merge them unless user already added the same ingredient
+      const pantryStaples = await fetchPantryStaples();
+      if (pantryStaples.length > 0) {
+        const userIngredientNames = new Set(
+          ingredientsWithNutrition.map((ing) => ing.name.toLowerCase())
+        );
+
+        const staplesAsIngredients = pantryStaples
+          .map((row) => {
+            if (!row.ingredient?.name) return null;
+            return {
+              name: row.ingredient.name,
+              available_quantity: Math.round(row.default_quantity_grams ?? 0),
+              unit: "grams",
+              calories_per_100g: Number(row.ingredient.calories) || 0,
+              protein_per_100g: Number(row.ingredient.protein) || 0,
+              carbs_per_100g: Number(row.ingredient.carbs) || 0,
+              fat_per_100g: Number(row.ingredient.fat) || 0,
+            };
+          })
+          .filter((ing): ing is Exclude<typeof ing, null> => !!ing)
+          .filter((ing) => !userIngredientNames.has(ing.name.toLowerCase()));
+
+        if (staplesAsIngredients.length > 0) {
+          ingredientsWithNutrition = [...ingredientsWithNutrition, ...staplesAsIngredients];
+        }
+      }
 
       logger.debug('Ingredients with nutrition:', ingredientsWithNutrition);
 
