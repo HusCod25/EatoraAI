@@ -28,6 +28,15 @@ const Register = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const passwordPolicyText = "Password must be at least 8 characters and include uppercase, lowercase, numbers, and special characters (e.g., *, $, %, @).";
+
+  const friendlyAuthError = (message: string) => {
+    if (message?.toLowerCase().includes("password")) {
+      return passwordPolicyText;
+    }
+    return message;
+  };
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && !loading) {
@@ -38,6 +47,11 @@ const Register = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (password.length < 8) {
+      toast.error(passwordPolicyText);
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast.error("Passwords don't match");
       return;
@@ -78,7 +92,7 @@ const Register = () => {
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error(friendlyAuthError(error.message));
       } else if (data.user) {
         // Update the profile with marketing preference, username, and GDPR consent
         // Trigger should create profile automatically, but update it if needed

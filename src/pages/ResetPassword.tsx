@@ -8,6 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 
+const passwordPolicyText = "Password must be at least 8 characters and include uppercase, lowercase, numbers, and special characters (e.g., *, $, %, @).";
+
+const friendlyAuthError = (message: string) => {
+  if (message.toLowerCase().includes("password")) {
+    return passwordPolicyText;
+  }
+  return message;
+};
+
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
@@ -54,7 +63,7 @@ const ResetPassword = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+      toast.error(passwordPolicyText);
       return;
     }
     if (hasMismatch) {
@@ -72,7 +81,7 @@ const ResetPassword = () => {
       navigate("/signin", { replace: true });
     } catch (err: any) {
       console.error("Update password error", err);
-      toast.error(err?.message || "Unable to update password. Please try again.");
+      toast.error(friendlyAuthError(err?.message || "Unable to update password. Please try again."));
       setStatus("ready");
     }
   };
