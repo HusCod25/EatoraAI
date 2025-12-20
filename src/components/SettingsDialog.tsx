@@ -464,11 +464,6 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="auto">Auto</SelectItem>
-                      {subscription?.plan === 'unlimited' && (
-                        <SelectItem value="diamond">💎 Diamond</SelectItem>
-                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -481,7 +476,6 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="en">🇺🇸 English</SelectItem>
-                      <SelectItem value="ro">🇷🇴 Romanian</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
