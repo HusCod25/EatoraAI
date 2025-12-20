@@ -68,6 +68,12 @@ const Terms = () => {
         "For support or legal inquiries, please contact us at: husarubusiness@yahoo.com (or your support email).",
       ],
     },
+    {
+      title: "10. Public Beta Notice",
+      content: [
+        "The service is currently in Public Beta. By purchasing a subscription, you are directly supporting the project's development. Please note that features and functionality are subject to change.",
+      ],
+    },
   ];
 
   return (

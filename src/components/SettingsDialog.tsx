@@ -107,13 +107,21 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
 
   const handleSaveProfile = async () => {
     if (!user) return;
-    
-    // Check if username has changed and if it's been less than 14 days since last change
-    if (username !== profile.username && profile.username_updated_at) {
+
+    const trimmedUsername = username.trim();
+    const usernameChanged = trimmedUsername !== profile.username;
+
+    if (!trimmedUsername) {
+      toast.error("Username cannot be empty");
+      return;
+    }
+
+    // Enforce 14-day cooldown between username changes
+    if (usernameChanged && profile.username_updated_at) {
       const lastUpdate = new Date(profile.username_updated_at);
       const fourteenDaysAgo = new Date();
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-      
+
       if (lastUpdate > fourteenDaysAgo) {
         const nextAllowedDate = new Date(lastUpdate);
         nextAllowedDate.setDate(nextAllowedDate.getDate() + 14);
@@ -121,28 +129,41 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
         return;
       }
     }
-    
+
     setLoading(true);
     try {
       const updateData: any = {
         user_id: user.id,
         updated_at: new Date().toISOString(),
       };
-      
-      // Only update username_updated_at if username actually changed
-      if (username !== profile.username) {
-        updateData.username = username;
+
+      if (usernameChanged) {
+        updateData.username = trimmedUsername;
         updateData.username_updated_at = new Date().toISOString();
       }
-      
+
       const { error } = await supabase
         .from("profiles")
-        .upsert(updateData);
+        .upsert(updateData, { onConflict: "user_id" });
 
-      if (error) throw error;
+      if (error) {
+        // Handle duplicate username constraint violations explicitly
+        if (error.code === "23505") {
+          toast.error("That username is already taken. Please choose another one.");
+          return;
+        }
+        throw error;
+      }
+
+      const nextProfile = {
+        ...profile,
+        username: usernameChanged ? trimmedUsername : profile.username,
+        username_updated_at: usernameChanged ? updateData.username_updated_at : profile.username_updated_at,
+      };
+      setProfile(nextProfile);
+      setUsername(nextProfile.username || "");
+
       toast.success("Profile updated successfully");
-      // Refresh profile data to get updated timestamp
-      fetchProfile();
     } catch (error) {
       logger.error("Error updating profile:", error);
       toast.error("Failed to update profile");
