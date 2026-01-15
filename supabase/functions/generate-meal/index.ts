@@ -295,7 +295,7 @@ serve(async (req) => {
 
     const returnFormat = isEasyMode
       ? [
-          'Return JSON in this exact format:',
+          'Return JSON in this exact format (DO NOT include placeholder text, replace with actual instructions):',
           '{',
           '  "mealName": "Realistic Meal Name",',
           `  "servings": ${servingsCount},`,
@@ -305,12 +305,12 @@ serve(async (req) => {
           '    {"name": "Olive oil", "amount": "1 tsp (optional)"},',
           '    {"name": "Salt", "amount": "to taste (optional)"}',
           '  ],',
-          '  "preparationMethod": "1. First step here.\\n2. Second step here.\\n3. Third step here.",',
-          '  "message": "A short, encouraging serving tip for the user."',
+          '  "preparationMethod": "1. PREP WORK: Rinse 100g of rice under cold running water in a strainer until the water runs clear. This removes excess starch and prevents clumping.\\n\\n2. HEAT THE PAN: Heat 1 tsp of olive oil in a large pan over medium heat (setting 5-6 out of 10). Wait until the oil shimmers slightly, about 30-45 seconds.\\n\\n3. COOK PROTEIN: Place the 150g chicken breast in the pan. You should hear a gentle sizzle. Cook for 6-7 minutes without moving it. The chicken is ready to flip when the edges turn white (about 1cm up the sides) and the bottom is golden brown.\\n\\n[Continue with more detailed cooking steps]\\n\\n**SERVE:**\\n\\n21. PLATING: Arrange the fluffy rice on a plate as a base.\\n\\n22. ADD PROTEIN: Place the cooked chicken on top of or alongside the rice.\\n\\n23. FINISHING TOUCHES: Optionally, drizzle with a little extra lemon juice or olive oil for added flavor.\\n\\n24. PRESENTATION: Garnish with fresh herbs if available for a restaurant-quality look.\\n\\n25. ENJOY: Take a moment to admire your creation before digging in. You have made a delicious, balanced meal all by yourself!",',
+          '  "message": "A short, encouraging message for the user."',
           '}'
         ].join('\n')
       : [
-          'Return JSON in this exact format:',
+          'Return JSON in this exact format (DO NOT include placeholder text, replace with actual instructions):',
           '{',
           '  "mealName": "Realistic Meal Name",',
           '  "ingredients": [',
@@ -319,7 +319,7 @@ serve(async (req) => {
           '    {"name": "Olive oil", "amount": "1 tsp (optional)"},',
           '    {"name": "Salt", "amount": "to taste (optional)"}',
           '  ],',
-          '  "preparationMethod": "1. First step here.\\n2. Second step here.\\n3. Third step here.\\n4. Continue with numbered steps.",',
+          '  "preparationMethod": "1. PREP WORK: Rinse 100g of rice under cold running water in a strainer until the water runs clear. This removes excess starch.\\n\\n2. HEAT THE PAN: Heat 1 tsp olive oil in a large pan over medium heat (setting 5-6 out of 10). Wait 30-45 seconds until the oil shimmers.\\n\\n3. COOK PROTEIN: Place the 150g chicken breast in the pan and cook for 6-7 minutes without moving it. You should hear a gentle sizzle. The chicken is ready to flip when the edges turn white and the bottom is golden brown.\\n\\n4. FLIP AND CONTINUE: Flip the chicken and cook for another 6-7 minutes until internal temperature reaches 75°C/165°F. The meat should be white throughout with no pink.\\n\\n[Continue with detailed cooking steps]\\n\\n**SERVE:**\\n\\n18. PLATING: Arrange the fluffy rice on a plate as a base.\\n\\n19. ADD PROTEIN: Place the cooked chicken on top of or alongside the rice.\\n\\n20. FINISHING TOUCHES: Drizzle with extra olive oil or lemon juice for added flavor.\\n\\n21. PRESENTATION: Garnish with fresh herbs if available.\\n\\n22. ENJOY: Take a moment to admire your creation before digging in!",',
           '  "macros": {',
           '    "calories": 520,',
           '    "protein": 42,',
@@ -339,6 +339,53 @@ serve(async (req) => {
 - For vegetables: 50-150g per meal
 - For fats: 5-20g per meal
 - NEVER use more than available quantity, but use sensible portions`,
+      `COOKING INSTRUCTIONS - CRITICAL FOR BEGINNERS:
+Your preparation method MUST be extremely detailed and beginner-friendly. Assume the person has NEVER cooked before.
+
+STRUCTURE YOUR INSTRUCTIONS IN TWO SECTIONS:
+
+**SECTION 1: COOKING STEPS** (numbered 1-X)
+For EVERY cooking step, include:
+1. EXACT MEASUREMENTS: "100g rice", "1 tsp oil", "150g chicken"
+2. EXACT TEMPERATURES: "Medium heat (setting 5-6 out of 10)", "Internal temperature 75°C/165°F"
+3. EXACT TIMING: "Cook for 6-7 minutes", "Rest for 2-3 minutes", "Simmer for 15-20 minutes"
+4. VISUAL CUES: "Until golden brown", "When edges turn white", "Until water runs clear", "When the surface looks dry"
+5. AUDIO CUES: "You should hear a gentle sizzle", "When the water starts to boil (rapid bubbles)"
+6. TEXTURE CUES: "Until tender when pierced with a fork", "When the meat is no longer pink inside"
+7. WHY IT MATTERS: "This removes excess starch", "This ensures food safety", "This keeps it juicy"
+8. WHAT TO LOOK FOR: "The bottom should be golden and crispy", "Juices should run clear"
+
+**SECTION 2: SERVING & PLATING** (marked with **SERVE:** then numbered starting fresh)
+After all cooking steps are complete, add a section marked "**SERVE:**" followed by 3-5 steps about:
+- How to plate the meal attractively
+- Where to place each component
+- Optional garnishes or finishing touches
+- Presentation tips
+- A final encouraging message
+
+Example structure:
+"1. PREP: [detailed instruction]
+2. COOK: [detailed instruction]
+...
+15. FINAL COOK STEP: [detailed instruction]
+
+**SERVE:**
+
+16. PLATING: Arrange the rice on a plate as a base.
+17. ADD PROTEIN: Place the chicken on top or alongside the rice.
+18. GARNISH: Drizzle with olive oil or lemon juice for extra flavor.
+19. PRESENTATION: Add fresh herbs if available for color.
+20. ENJOY: Admire your creation - you've made a delicious meal!"
+
+Example of GOOD detailed step:
+"Place the 150g chicken breast in the pan and cook for 6-7 minutes without moving it. You should hear a gentle sizzle. The chicken is ready to flip when the edges turn white (about 1cm up the sides) and the bottom is golden brown. Use a spatula to gently lift the edge and check - it should release easily from the pan when ready."
+
+Example of BAD step (too vague):
+"Cook the chicken until done."
+
+BREAK DOWN COMPLEX TASKS:
+- Instead of "prepare the vegetables", say: "Rinse the carrots under cold water. Pat dry with a paper towel. Use a vegetable peeler to remove the skin. Cut into 0.5cm thick rounds."
+- Instead of "cook the rice", give full rice cooking instructions with water ratios, timing, and doneness checks.`,
       `PROTEIN SELECTION (CRITICAL):
 ${availableProteins.length > 1 ? `You have MULTIPLE proteins available: ${availableProteins.join(', ')}
 ${preferredProtein ? `PREFERRED PROTEIN FOR THIS MEAL: Use "${preferredProtein}" as the main protein.
@@ -368,8 +415,8 @@ You can add these as optional ingredients (they don't significantly affect calor
     // Call OpenAI API
     console.log('Calling OpenAI API...');
     const systemContent = isEasyMode
-      ? 'You are a friendly meal generator that focuses on simple, approachable recipes. Always return valid JSON in the exact format specified. When Easy Mode is active, you never calculate calories or macros and you emphasize correct portioning for the requested number of servings.'
-      : 'You are a smart meal generator that creates realistic, balanced meals. Always return valid JSON in the exact format specified. Focus on creating meals that are both nutritious and practical, using realistic portions and good flavor combinations. CRITICAL: You must create UNIQUE meals that are completely different from any existing meals the user already has. Never repeat meal names or create similar variations.';
+      ? 'You are a friendly meal generator that focuses on simple, approachable recipes for beginners. Always return valid JSON in the exact format specified. When Easy Mode is active, you never calculate calories or macros and you emphasize correct portioning for the requested number of servings. CRITICAL: Your cooking instructions must be EXTREMELY detailed with exact temperatures, times, visual cues, and step-by-step guidance that even someone who has never cooked before can follow successfully.'
+      : 'You are a smart meal generator that creates realistic, balanced meals with HIGHLY DETAILED cooking instructions. Always return valid JSON in the exact format specified. Focus on creating meals that are both nutritious and practical, using realistic portions and good flavor combinations. CRITICAL: You must create UNIQUE meals that are completely different from any existing meals the user already has. Never repeat meal names or create similar variations. CRITICAL: Your cooking instructions must include exact temperatures, specific timing, visual/audio cues, and detailed explanations that make cooking foolproof for complete beginners.';
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -663,7 +710,7 @@ You can add these as optional ingredients (they don't significantly affect calor
         recipe = {
           title: "Simple Family Meal",
           ingredients: realisticPortions,
-          preparation_method: "1. Prepare all ingredients.\n2. Cook proteins, add vegetables, then finish with carbs.\n3. Divide evenly into servings and season to taste.",
+          preparation_method: "1. PREP WORK: Gather all ingredients and place them on a clean counter. Wash your hands thoroughly with soap for 20 seconds. Pat all ingredients dry with paper towels.\n\n2. PROTEIN PREPARATION: If using meat, remove it from packaging and place on a cutting board. Pat completely dry with paper towels (this helps it brown properly). Season both sides with a pinch of salt and pepper.\n\n3. HEAT THE PAN: Place a large pan on the stove over medium heat (dial setting 5-6 out of 10). Add 1 tsp of oil and wait 30-45 seconds until it shimmers slightly. To test if it's ready, hold your hand 6 inches above the pan - you should feel warmth.\n\n4. COOK PROTEIN: Carefully place the protein in the pan. You should hear a gentle sizzling sound. Cook without moving for 6-7 minutes until the bottom is golden brown. Flip once and cook for another 6-7 minutes until fully cooked (internal temperature should reach 75°C/165°F for chicken).\n\n5. ADD VEGETABLES: Add your vegetables to the pan with the protein. Stir every 2-3 minutes until they're tender when pierced with a fork (usually 5-8 minutes).\n\n6. FINISH WITH CARBS: If using rice or pasta, cook separately according to package instructions. Add to the pan at the end, mix everything together, and taste. Add more salt and pepper if needed.\n\n7. REST AND SERVE: Remove from heat and let rest for 2 minutes. Divide evenly into portions and serve hot.",
           total_calories: easyFallbackMacros.calories,
           total_protein: easyFallbackMacros.protein,
           total_carbs: easyFallbackMacros.carbs,
@@ -679,7 +726,7 @@ You can add these as optional ingredients (they don't significantly affect calor
       recipe = {
         title: "Quick Balanced Meal",
         ingredients: realisticPortions,
-        preparation_method: "1. Prepare all ingredients as needed.\n2. Cook protein source first, then add vegetables.\n3. Season with salt, pepper, and herbs.\n4. Serve hot and enjoy!",
+        preparation_method: "1. PREPARATION: Wash hands thoroughly for 20 seconds. Rinse all vegetables under cold running water and pat dry. Set up your cooking area with all ingredients within reach.\n\n2. HEAT CONTROL: Place a large skillet or pan on the stove. Turn to medium heat (setting 5-6 out of 10). Add 1 tsp of oil and wait 30-45 seconds until it shimmers.\n\n3. PROTEIN COOKING: Pat protein dry with paper towels. Season with salt and pepper on both sides. Place in hot pan - you should hear sizzling. Cook for 6-7 minutes without moving. The edges should turn opaque and the bottom golden. Flip and cook another 6-7 minutes until internal temperature reaches 75°C/165°F.\n\n4. VEGETABLE ADDITION: Add vegetables to the pan. Stir every 2-3 minutes using a wooden spoon or spatula. Cook until fork-tender (5-8 minutes).\n\n5. FINISHING TOUCHES: Season with salt, pepper, and any herbs you have. Taste and adjust. Remove from heat and let rest 2 minutes before serving.\n\n6. SERVE: Divide into portions and enjoy while hot!",
           total_calories: fallbackCalories,
         // Round to integers for database compatibility
           total_protein: Math.round(fallbackCalories * 0.25 / 4), // 25% protein

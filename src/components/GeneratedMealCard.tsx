@@ -149,6 +149,21 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
       // Clean up step formatting - remove extra numbers if they exist
       return step.replace(/^\d+\.\s*/, '').trim();
     });
+
+  // Find where the SERVE section starts
+  const serveIndex = instructions.findIndex(step => 
+    step.toUpperCase().includes('**SERVE:**') || 
+    step.toUpperCase().includes('SERVE:')
+  );
+
+  // Split instructions into cooking and serving sections
+  const cookingInstructions = serveIndex !== -1 
+    ? instructions.slice(0, serveIndex) 
+    : instructions;
+  
+  const servingInstructions = serveIndex !== -1 
+    ? instructions.slice(serveIndex + 1).filter(step => step.trim()) // Skip the "SERVE:" header
+    : [];
   
   // Normalize ingredients for display with better gramage formatting
   const normalizedIngredients = sanitizedMeal.ingredients.map((ingredient: any) => {
@@ -218,7 +233,7 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
                 disabled={isDeleting}
                 size="sm"
                 variant="ghost"
-                className="flex items-center gap-2 text-destructive hover:text-destructive"
+                className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
                 {isDeleting ? "Deleting..." : "Delete"}
@@ -230,7 +245,7 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
                 }}
                 disabled={isSaving}
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-primary/90 hover:bg-primary"
               >
                 <Heart className="h-4 w-4" />
                 {isSaving ? "Saving..." : "Save"}
@@ -242,18 +257,18 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
         
         <CardContent className="space-y-4 pt-6">
           {/* Quick Stats */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium">
               <ChefHat className="h-4 w-4" />
-              <span>{sanitizedMeal.calories} cal</span>
+              <span>{sanitizedMeal.calories}</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
               <Clock className="h-4 w-4" />
-              <span>{sanitizedMeal.cooking_time} min</span>
+              <span>{sanitizedMeal.cooking_time}m</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
               <Users className="h-4 w-4" />
-              <span>1 serving</span>
+              <span>Serves 1</span>
             </div>
           </div>
 
@@ -269,15 +284,11 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
           )}
 
           {/* Ingredients Preview */}
-          <div>
+          <div className="pt-2 border-t">
             <h4 className="font-semibold mb-2 text-sm">Ingredients ({normalizedIngredients.length})</h4>
             <div className="text-sm text-muted-foreground">
               {normalizedIngredients.slice(0, 3).join(', ')}{normalizedIngredients.length > 3 && '...'}
             </div>
-          </div>
-
-          <div className="pt-2 border-t">
-            <p className="text-xs text-muted-foreground">Click to view full recipe</p>
           </div>
         </CardContent>
       </Card>
@@ -377,9 +388,9 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
             <div className="space-y-4">
               <h3 className="text-xl font-semibold">Cooking Instructions</h3>
               <div className="space-y-4">
-                {instructions.map((step, index) => (
+                {cookingInstructions.map((step, index) => (
                   <div key={index} className="flex gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-bold">
+                    <div className="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold">
                       {index + 1}
                     </div>
                     <div className="flex-1 py-1">
@@ -388,6 +399,25 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
                   </div>
                 ))}
               </div>
+
+              {/* Serving/Plating Section */}
+              {servingInstructions.length > 0 && (
+                <>
+                  <h3 className="text-xl font-semibold mt-6">Serve</h3>
+                  <div className="space-y-4">
+                    {servingInstructions.map((step, index) => (
+                      <div key={`serve-${index}`} className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold">
+                          {cookingInstructions.length + index + 1}
+                        </div>
+                        <div className="flex-1 py-1">
+                          <p className="leading-relaxed">{step}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Macronutrients */}

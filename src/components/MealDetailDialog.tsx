@@ -99,6 +99,21 @@ export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false
       return step.replace(/^\d+\.\s*/, '').trim();
     });
 
+  // Find where the SERVE section starts
+  const serveIndex = instructions.findIndex(step => 
+    step.toUpperCase().includes('**SERVE:**') || 
+    step.toUpperCase().includes('SERVE:')
+  );
+
+  // Split instructions into cooking and serving sections
+  const cookingInstructions = serveIndex !== -1 
+    ? instructions.slice(0, serveIndex) 
+    : instructions;
+  
+  const servingInstructions = serveIndex !== -1 
+    ? instructions.slice(serveIndex + 1).filter(step => step.trim()) // Skip the "SERVE:" header
+    : [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[82vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-card shadow-[0_35px_120px_rgba(3,6,20,0.75)]">
@@ -237,15 +252,32 @@ export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-foreground">Instructions</h3>
             <div className="space-y-3">
-              {instructions.map((step, index) => (
+              {cookingInstructions.map((step, index) => (
                 <div key={index} className="flex gap-4 p-3 bg-card border rounded-lg">
-                  <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
+                  <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
                     {index + 1}
                   </div>
                   <p className="text-sm leading-relaxed text-foreground">{step.trim()}</p>
                 </div>
               ))}
             </div>
+
+            {/* Serving/Plating Section */}
+            {servingInstructions.length > 0 && (
+              <>
+                <h3 className="text-xl font-semibold text-foreground mt-6">Serve</h3>
+                <div className="space-y-3">
+                  {servingInstructions.map((step, index) => (
+                    <div key={`serve-${index}`} className="flex gap-4 p-3 bg-card border rounded-lg">
+                      <div className="flex-shrink-0 w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                        {cookingInstructions.length + index + 1}
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground">{step.trim()}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>

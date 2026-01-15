@@ -212,7 +212,7 @@ export const MealCard = ({
               disabled={isDeleting}
               size="sm"
               variant="ghost"
-              className="text-destructive hover:text-destructive h-7 px-2"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors h-7 px-2"
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -231,21 +231,20 @@ export const MealCard = ({
         </div>
 
         {/* Quick Stats Row */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+        <div className="flex items-center gap-2 flex-wrap mb-2">
           {sanitizedMeal.calories && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium">
               <ChefHat className="h-3 w-3" />
-              <span className="font-medium text-foreground">{sanitizedMeal.calories}</span>
-              <span>cal</span>
+              <span>{sanitizedMeal.calories}</span>
             </div>
           )}
           {sanitizedMeal.cooking_time && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
               <Clock className="h-3 w-3" />
-              <span>{sanitizedMeal.cooking_time} min</span>
+              <span>{sanitizedMeal.cooking_time}m</span>
             </div>
           )}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium">
             <Users className="h-3 w-3" />
             <span>{servingsLabel}</span>
           </div>
@@ -295,11 +294,10 @@ export const MealCard = ({
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="flex items-center gap-2">
             <div className="text-xs font-medium">Ingredients ({ingredientCount})</div>
-            <div className="text-xs text-muted-foreground">Click to view full recipe</div>
           </div>
           
           {showExpiry && sanitizedMeal.expires_at && (
-            <div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded">
+            <div className="flex items-center gap-1 text-xs text-black bg-yellow-600 px-1.5 py-0.5 rounded font-medium">
               <Timer className="h-3 w-3" />
               {getTimeRemaining(sanitizedMeal.expires_at)}
             </div>
