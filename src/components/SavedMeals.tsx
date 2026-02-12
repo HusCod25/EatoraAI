@@ -30,6 +30,9 @@ interface GeneratedMeal {
   tags?: string[];
   created_at: string;
   expires_at: string;
+  restaurant_price?: number | null;
+  homemade_price?: number | null;
+  price_currency?: string | null;
 }
 
 interface SavedMeal {
@@ -42,6 +45,9 @@ interface SavedMeal {
   calories?: number;
   tags?: string[];
   created_at: string;
+  restaurant_price?: number | null;
+  homemade_price?: number | null;
+  price_currency?: string | null;
 }
 
 export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) => {
@@ -53,6 +59,8 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
   const [loading, setLoading] = useState(true);
   const [selectedMeal, setSelectedMeal] = useState<GeneratedMeal | SavedMeal | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMealType, setSelectedMealType] = useState<'generated' | 'saved' | null>(null);
+  const [userCurrency, setUserCurrency] = useState<string | null>(null);
   
   // Get save limit from plan limits (null means unlimited, show as Infinity)
   const saveLimit = planLimits?.max_saved_meals ?? null; // null = unlimited
@@ -68,6 +76,7 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
   useEffect(() => {
     if (user) {
       fetchMeals();
+      fetchUserCurrency();
       // Set up real-time updates with immediate refresh
       const channel = supabase
         .channel('meals-changes')
@@ -99,6 +108,22 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
       };
     }
   }, [user]);
+
+  const fetchUserCurrency = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('currency')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setUserCurrency(data?.currency ?? null);
+    } catch (error) {
+      logger.error('Error fetching user currency:', error);
+    }
+  };
 
   const fetchMeals = async () => {
     logger.debug('fetchMeals called in SavedMeals component');
@@ -190,7 +215,10 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
             cooking_time: meal.cooking_time,
             calories: meal.calories,
             tags: meal.tags,
-            saved_from_generated_id: meal.id
+            saved_from_generated_id: meal.id,
+            restaurant_price: meal.restaurant_price ?? null,
+            homemade_price: meal.homemade_price ?? null,
+            price_currency: meal.price_currency ?? userCurrency
           });
 
         if (error) throw error;
@@ -262,9 +290,48 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
     }
   };
 
-  const openMealDetail = (meal: GeneratedMeal | SavedMeal) => {
+  const openMealDetail = (meal: GeneratedMeal | SavedMeal, type: 'generated' | 'saved') => {
     setSelectedMeal(meal);
+    setSelectedMealType(type);
     setDialogOpen(true);
+  };
+
+  const handleCookedMeal = async () => {
+    if (!user || !selectedMeal) return;
+
+    const restaurantPrice = typeof selectedMeal.restaurant_price === 'number' ? selectedMeal.restaurant_price : null;
+    const homemadePrice = typeof selectedMeal.homemade_price === 'number' ? selectedMeal.homemade_price : null;
+    const currency = selectedMeal.price_currency || userCurrency;
+
+    if (restaurantPrice === null || homemadePrice === null || !currency) {
+      toast.error('Missing price data for this meal. Generate a new one with pricing enabled.');
+      return;
+    }
+
+    const savingsAmount = Math.max(restaurantPrice - homemadePrice, 0);
+
+    try {
+      const { error } = await supabase
+        .from('budget_entries')
+        .insert({
+          user_id: user.id,
+          meal_id: selectedMeal.id,
+          meal_title: selectedMeal.title,
+          restaurant_price: restaurantPrice,
+          homemade_price: homemadePrice,
+          savings_amount: savingsAmount,
+          currency,
+        });
+
+      if (error) throw error;
+
+      toast.success('Added to your savings!');
+      // Notify other parts of the app (e.g., UserAccount) to update totals smoothly
+      window.dispatchEvent(new CustomEvent('budget:savings-added', { detail: { amount: savingsAmount } }));
+    } catch (error) {
+      logger.error('Error adding budget entry:', error);
+      toast.error('Failed to add savings. Please try again.');
+    }
   };
 
   const filteredGeneratedMeals = generatedMeals.filter(meal =>
@@ -345,7 +412,7 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
                   key={meal.id}
                   meal={meal}
                   type="generated"
-                  onClick={() => openMealDetail(meal)}
+                  onClick={() => openMealDetail(meal, 'generated')}
                   onDelete={fetchGeneratedMeals}
                   onSave={() => {
                     fetchSavedMeals();
@@ -376,7 +443,7 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
                   key={meal.id}
                   meal={meal}
                   type="saved"
-                  onClick={() => openMealDetail(meal)}
+                  onClick={() => openMealDetail(meal, 'saved')}
                   onDelete={fetchSavedMeals}
                 />
               ))}
@@ -390,6 +457,8 @@ export const SavedMeals = forwardRef<{ refreshMeals: () => void }>((props, ref) 
         meal={selectedMeal}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        showCookedAction={!!selectedMeal}
+        onCooked={handleCookedMeal}
       />
     </div>
   );

@@ -67,7 +67,7 @@ var corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 (0, server_ts_1.serve)(function (req) { return __awaiter(void 0, void 0, void 0, function () {
-    var requestBody, ingredients, calories, protein, carbs, fats, _a, mode, servings, isEasyMode, parseServings, servingsCount, parsedCalories, authHeader, supabase, _b, user, userError, userPlan, _c, subscription, subError, planError_1, getModelForPlan, selectedModel, ingredientsWithNutrition, existingMealTitles, usedProteins_1, _d, generatedMeals, genError, _e, savedMeals, savedError, mealsError_1, availableProteins, preferredProtein, uniqueUsedProteins_1, unusedProteins, macroTargetsText, servingsInstruction, targetGoalsSection, macroToleranceSection, duplicatesSection, availableIngredientsSection, returnFormat, userMessageSections, userMessage, systemContent, response, errorText, data, aiResponse, parseAmountToGrams_1, calculateMacrosFromIngredients, recipe, servingsValue, convertedRecipe, calculatedMacros, hasValidCalculation, finalMacros, calDiff, proteinDiff, carbsDiff, fatsDiff, warningMessage, convertedRecipe, realisticPortions, fallbackCalories, expiresAt, mealTags, mealData, _f, insertedMeal, mealError, error_1, errorMessage, errorDetails;
+    var requestBody, ingredients, calories, protein, carbs, fats, _a, mode, servings, isEasyMode, parseServings, servingsCount, parsedCalories, authHeader, supabase, _b, user, userError, userCountry, userCurrency, profileData, profileError, userPlan, _c, subscription, subError, planError_1, getModelForPlan, selectedModel, ingredientsWithNutrition, existingMealTitles, usedProteins_1, _d, generatedMeals, genError, _e, savedMeals, savedError, mealsError_1, availableProteins, preferredProtein, uniqueUsedProteins_1, unusedProteins, macroTargetsText, servingsInstruction, targetGoalsSection, macroToleranceSection, duplicatesSection, availableIngredientsSection, returnFormat, allowedIngredientNames, allowedIngredientNamesDisplay, ingredientStrictSection, userMessageSections, userMessage, systemContent, response, errorText, data, aiResponse, parseAmountToGrams_1, calculateMacrosFromIngredients, parsePriceValue, isAllowedIngredientName, filterIngredientsToAllowed, recipe, filteredIngredients, restaurantPrice, homemadePrice, priceCurrency, servingsValue, convertedRecipe, calculatedMacros, hasValidCalculation, finalMacros, calDiff, proteinDiff, carbsDiff, fatsDiff, warningMessage, convertedRecipe, realisticPortions, fallbackCalories, expiresAt, mealTags, mealData, _f, insertedMeal, mealError, error_1, errorMessage, errorDetails;
     var _g, _h;
     return __generator(this, function (_j) {
         switch (_j.label) {
@@ -82,7 +82,7 @@ var corsHeaders = {
             case 2:
                 requestBody = _j.sent();
                 ingredients = requestBody.ingredients, calories = requestBody.calories, protein = requestBody.protein, carbs = requestBody.carbs, fats = requestBody.fats, _a = requestBody.mode, mode = _a === void 0 ? 'nutri' : _a, servings = requestBody.servings;
-                isEasyMode = mode === 'easy';
+                isEasyMode = true;
                 parseServings = function (value) {
                     if (typeof value === 'number' && !isNaN(value))
                         return Math.max(1, Math.min(10, Math.round(value)));
@@ -94,16 +94,10 @@ var corsHeaders = {
                     return 2;
                 };
                 servingsCount = parseServings(servings);
-                parsedCalories = !isEasyMode && calories ? parseInt(calories, 10) : null;
+                parsedCalories = null;
                 // Validate required fields
                 if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
                     return [2 /*return*/, new Response(JSON.stringify({ error: 'Ingredients array is required and cannot be empty' }), {
-                            status: 400,
-                            headers: __assign(__assign({}, corsHeaders), { 'Content-Type': 'application/json' }),
-                        })];
-                }
-                if (!isEasyMode && (parsedCalories === null || isNaN(parsedCalories))) {
-                    return [2 /*return*/, new Response(JSON.stringify({ error: 'Valid calories value is required' }), {
                             status: 400,
                             headers: __assign(__assign({}, corsHeaders), { 'Content-Type': 'application/json' }),
                         })];
@@ -127,26 +121,48 @@ var corsHeaders = {
                             headers: __assign(__assign({}, corsHeaders), { 'Content-Type': 'application/json' }),
                         })];
                 }
-                userPlan = 'free';
+                userCountry = 'United States';
+                userCurrency = 'USD';
                 _j.label = 4;
             case 4:
                 _j.trys.push([4, 6, , 7]);
+                return [4 /*yield*/, supabase
+                        .from('profiles')
+                        .select('country, currency')
+                        .eq('user_id', user.id)
+                        .maybeSingle()];
+            case 5:
+                profileData = _j.sent();
+                if (!profileData.error && profileData.data) {
+                    userCountry = profileData.data.country || userCountry;
+                    userCurrency = profileData.data.currency || userCurrency;
+                }
+                return [3 /*break*/, 7];
+            case 6:
+                profileError = _j.sent();
+                console.error('Error fetching profile, defaulting country/currency:', profileError);
+                return [3 /*break*/, 7];
+            case 7:
+                userPlan = 'free';
+                _j.label = 8;
+            case 8:
+                _j.trys.push([8, 10, , 11]);
                 return [4 /*yield*/, supabase
                         .from('user_subscriptions')
                         .select('plan')
                         .eq('user_id', user.id)
                         .maybeSingle()];
-            case 5:
+            case 9:
                 _c = _j.sent(), subscription = _c.data, subError = _c.error;
                 if (!subError && subscription) {
                     userPlan = subscription.plan || 'free';
                 }
-                return [3 /*break*/, 7];
-            case 6:
+                return [3 /*break*/, 11];
+            case 10:
                 planError_1 = _j.sent();
                 console.error('Error fetching subscription plan, defaulting to free:', planError_1);
-                return [3 /*break*/, 7];
-            case 7:
+                return [3 /*break*/, 11];
+            case 11:
                 getModelForPlan = function (plan) {
                     switch (plan) {
                         case 'free':
@@ -289,7 +305,7 @@ var corsHeaders = {
                     preferredProtein = availableProteins[0];
                 }
                 macroTargetsText = !isEasyMode ? "\nIf macronutrient targets exist, try to hit them as closely as possible:\n".concat(protein ? "- Protein: ".concat(protein, "g") : "", "\n").concat(carbs ? "- Carbs: ".concat(carbs, "g") : "", "\n").concat(fats ? "- Fats: ".concat(fats, "g") : "") : '';
-                servingsInstruction = "Create a meal using ONLY the user's ingredients and divide the recipe appropriately for ".concat(servingsCount, " servings. Ensure the ingredient quantities and instructions reflect the number of portions.").concat(isEasyMode ? ' Do not calculate calories or macros. Focus only on correct ingredient scaling.' : '');
+                servingsInstruction = "Create a meal using ONLY the user's ingredients and divide the recipe appropriately for ".concat(servingsCount, " servings. Ensure the ingredient quantities and instructions reflect the number of portions.").concat(isEasyMode ? ' Do not calculate calories or macros. Focus only on correct ingredient scaling and realistic per-person portions.' : '');
                 targetGoalsSection = isEasyMode
                     ? "SERVING FOCUS:\n- ".concat(servingsInstruction, "\n- Mention the servings count in the response so the user knows the portioning.\n- Use simple, beginner-friendly cooking language.")
                     : "TARGET GOALS:\n- Calories: ".concat(parsedCalories, " (\u00B130 kcal tolerance)\n").concat(protein ? "- Protein: ".concat(protein, "g (\u00B15g tolerance)") : "", "\n").concat(carbs ? "- Carbs: ".concat(carbs, "g (\u00B15g tolerance)") : "", "\n").concat(fats ? "- Fats: ".concat(fats, "g (\u00B15g tolerance)") : "", "\n").concat(macroTargetsText, "\n- ").concat(servingsInstruction);
@@ -297,17 +313,32 @@ var corsHeaders = {
                 duplicatesSection = "CRITICAL - AVOID DUPLICATES (THIS IS MANDATORY):\n".concat(existingMealTitles.length > 0 ? "The user ALREADY HAS these meals - you MUST NOT create anything similar:\n".concat(existingMealTitles.map(function (title, idx) { return "".concat(idx + 1, ". \"").concat(title, "\""); }).join('\n'), "\n\nSTRICT RULES:\n- DO NOT use the same meal name or any variation of it\n- DO NOT use similar cooking methods (e.g., if \"Chicken and Rice Stir Fry\" exists, don't create \"Chicken and Rice Bowl\" or \"Chicken Rice Stir Fry\")\n- DO NOT use similar flavor profiles (e.g., if \"Chicken and Rice with Creamy Carrot Sauce\" exists, don't create \"Chicken and Rice with Carrot Sauce\" or any creamy variation)\n- CREATE A COMPLETELY DIFFERENT MEAL TYPE: Use different cooking methods (baked, grilled, stewed, curry, casserole, skewers, wraps, etc.)\n- USE DIFFERENT FLAVOR PROFILES: Try different cuisines (Italian, Mexican, Asian, Mediterranean, etc.) or different spice combinations\n- BE CREATIVE: Think of unique combinations that haven't been used yet") : 'No existing meals found - you can create any meal.', "\n\nThe new meal MUST be completely unique - different name, different cooking method, different flavor profile, and different concept from ALL existing meals listed above.");
                 availableIngredientsSection = "Available ingredients with nutritional data per 100g:\n".concat(JSON.stringify(ingredientsWithNutrition, null, 2));
                 returnFormat = isEasyMode
-                    ? "Return JSON in this exact format:\n{\n  \"mealName\": \"Realistic Meal Name\",\n  \"servings\": ".concat(servingsCount, ",\n  \"ingredients\": [\n    {\"name\": \"Chicken breast\", \"amount\": \"150g\"},\n    {\"name\": \"Rice\", \"amount\": \"100g\"},\n    {\"name\": \"Olive oil\", \"amount\": \"1 tsp (optional)\"},\n    {\"name\": \"Salt\", \"amount\": \"to taste (optional)\"}\n  ],\n  \"preparationMethod\": \"1. First step here.\\n2. Second step here.\\n3. Third step here.\",\n  \"message\": \"A short, encouraging serving tip for the user.\"\n}")
-                    : "Return JSON in this exact format:\n{\n  \"mealName\": \"Realistic Meal Name\",\n  \"ingredients\": [\n    {\"name\": \"Chicken breast\", \"amount\": \"150g\"},\n    {\"name\": \"Rice\", \"amount\": \"100g\"},\n    {\"name\": \"Olive oil\", \"amount\": \"1 tsp (optional)\"},\n    {\"name\": \"Salt\", \"amount\": \"to taste (optional)\"}\n  ],\n  \"preparationMethod\": \"1. First step here.\\n2. Second step here.\\n3. Third step here.\\n4. Continue with numbered steps.\",\n  \"macros\": {\n    \"calories\": 520,\n    \"protein\": 42,\n    \"carbs\": 58,\n    \"fats\": 12\n  },\n  \"message\": \"\u2705 Meal generated within target macros.\" or \"\u26A0\uFE0F No exact match found \u2014 generated closest possible meal.\"\n}";
+                    ? "Return JSON in this exact format:\n{\n  \"mealName\": \"Realistic Meal Name\",\n  \"servings\": ".concat(servingsCount, ",\n  \"ingredients\": [\n    {\"name\": \"Chicken breast\", \"amount\": \"150g\"},\n    {\"name\": \"Rice\", \"amount\": \"100g\"},\n    {\"name\": \"Salt\", \"amount\": \"to taste (optional)\"},\n    {\"name\": \"Pepper\", \"amount\": \"to taste (optional)\"}\n  ],\n  \"preparationMethod\": \"1. First step here.\\n2. Second step here.\\n3. Third step here.\",\n  \"message\": \"A short, encouraging serving tip for the user.\",\n  \"restaurantPrice\": 45.00,\n  \"homemadePrice\": 14.50,\n  \"currency\": \"".concat(userCurrency, "\"\n}")
+                    : "Return JSON in this exact format:\n{\n  \"mealName\": \"Realistic Meal Name\",\n  \"ingredients\": [\n    {\"name\": \"Chicken breast\", \"amount\": \"150g\"},\n    {\"name\": \"Rice\", \"amount\": \"100g\"},\n    {\"name\": \"Olive oil\", \"amount\": \"1 tsp (optional)\"},\n    {\"name\": \"Salt\", \"amount\": \"to taste (optional)\"}\n  ],\n  \"preparationMethod\": \"1. First step here.\\n2. Second step here.\\n3. Third step here.\\n4. Continue with numbered steps.\",\n  \"macros\": {\n    \"calories\": 520,\n    \"protein\": 42,\n    \"carbs\": 58,\n    \"fats\": 12\n  },\n  \"message\": \"\u2705 Meal generated within target macros.\" or \"\u26A0\uFE0F No exact match found \u2014 generated closest possible meal.\",\n  \"restaurantPrice\": 45.00,\n  \"homemadePrice\": 14.50,\n  \"currency\": \"".concat(userCurrency, "\"\n}");
+                allowedIngredientNames = ingredientsWithNutrition
+                    .map(function (ing) { return ((ing === null || ing === void 0 ? void 0 : ing.name) || '').toString().trim().toLowerCase(); })
+                    .filter(Boolean);
+                allowedIngredientNamesDisplay = ingredientsWithNutrition
+                    .map(function (ing) { return ((ing === null || ing === void 0 ? void 0 : ing.name) || '').toString().trim(); })
+                    .filter(Boolean);
+                ingredientStrictSection = isEasyMode
+                    ? "STRICT INGREDIENT RULES (EASY MODE):\n- You may ONLY use ingredients from the \"Available ingredients\" list below (this list already includes any pantry staples the user selected)\n- Do NOT add extra vegetables, grains, sauces, oils, or spices that are NOT listed\n- If the user only provides 1-2 ingredients, you must create a simple dish using ONLY those ingredients\n- The ONLY exceptions are salt and pepper (optional)\n\nALLOWED INGREDIENT NAMES:\n".concat(allowedIngredientNamesDisplay.map(function (name) { return "- ".concat(name); }).join('\n'))
+                    : '';
                 userMessageSections = [
-                    "You are a smart meal generator that creates realistic, balanced meals. Your goal is to generate meals that are both nutritious and practical.",
-                    "SMART INGREDIENT USAGE RULES:\n- Use REALISTIC portions, not all available ingredients\n- For protein: typically 100-180g per meal\n- For carbs (rice, pasta, etc.): typically 60-120g per meal  \n- For vegetables: 50-150g per meal\n- For fats: 5-20g per meal\n- NEVER use more than available quantity, but use sensible portions",
+                    isEasyMode
+                        ? "You are a simple, beginner-friendly meal generator. Your goal is to create realistic, everyday portions that feel normal for the requested number of servings."
+                        : "You are a smart meal generator that creates realistic, balanced meals. Your goal is to generate meals that are both nutritious and practical.",
+                    isEasyMode
+                        ? "SMART INGREDIENT USAGE RULES (EASY MODE):\n- Use REALISTIC, NORMAL portions per person (avoid oversized servings)\n- For protein: typically 100-160g per person\n- For carbs (rice, pasta, etc.): typically 50-80g DRY per person\n- For vegetables: 80-150g per person\n- For fats: 5-15g per person\n- Total amounts must scale with the number of servings (e.g., 2 servings \u2248 double the per-person amounts)\n- NEVER use more than available quantity, but use sensible portions\n- If an ingredient amount seems too large for the servings, reduce it"
+                        : "SMART INGREDIENT USAGE RULES:\n- Use REALISTIC portions, not all available ingredients\n- For protein: typically 100-180g per meal\n- For carbs (rice, pasta, etc.): typically 60-120g per meal  \n- For vegetables: 50-150g per meal\n- For fats: 5-20g per meal\n- NEVER use more than available quantity, but use sensible portions",
                     "PROTEIN SELECTION (CRITICAL):\n".concat(availableProteins.length > 1 ? "You have MULTIPLE proteins available: ".concat(availableProteins.join(', '), "\n").concat(preferredProtein ? "PREFERRED PROTEIN FOR THIS MEAL: Use \"".concat(preferredProtein, "\" as the main protein.\n").concat(usedProteins_1.length > 0 ? "Proteins already used in recent meals: ".concat(__spreadArray([], new Set(usedProteins_1), true).join(', ')) : '', "\n- You MUST vary which protein you use across different meal generations\n- If you've been using chicken, switch to beef (or vice versa)\n- Create variety by rotating through ALL available proteins") : 'Rotate through all available proteins - use different ones in different meals.') : availableProteins.length === 1 ? "You have one protein available: ".concat(availableProteins[0], ". Use it in this meal.") : 'No specific proteins detected - use appropriate protein sources from available ingredients.'),
                     targetGoalsSection,
-                    "OPTIONAL CONDIMENTS:\nYou can add these as optional ingredients (they don't significantly affect calories):\n- Salt, pepper, herbs, spices\n- Olive oil (1-2 tsp)\n- Lemon juice, vinegar\n- Basic seasonings",
+                    "PRICING ESTIMATES (REQUIRED):\n- Country: ".concat(userCountry, "\n- Currency: ").concat(userCurrency, "\n- Servings: ").concat(servingsCount, " (prices MUST be for the total number of servings)\n- Estimate a MID-RANGE restaurant price for THIS MEAL SIZE (not cheap, not expensive)\n- Estimate the total homemade ingredient cost for THIS MEAL SIZE\n- Base pricing primarily on servings count (portion-based), not on ingredient quantity details\n- For example: if servings=2, estimate a typical 2-portion meal price in ").concat(userCountry, "\n- Use realistic LOCAL pricing for ").concat(userCountry, " (do NOT use foreign pricing or currency conversions)\n- Return numeric values only (no currency symbols) and ensure restaurantPrice > homemadePrice"),
+                    "OPTIONAL CONDIMENTS:\nYou can add these as optional ingredients:\n- Salt (optional)\n- Pepper (optional)",
                     "MEAL REALISM:\n- Create balanced, tasty meals (not just ingredient dumps)\n- Choose logical meal formats (stir fry, bowl, salad, pasta, etc.)\n- Ensure good flavor combinations\n- Make it something someone would actually want to eat",
                     macroToleranceSection,
                     duplicatesSection,
+                    ingredientStrictSection,
                     availableIngredientsSection,
                     returnFormat
                 ].filter(Boolean);
@@ -484,6 +515,30 @@ var corsHeaders = {
                         fats: Math.round(totalFats)
                     };
                 };
+                isAllowedIngredientName = function (name) {
+                    if (!name)
+                        return false;
+                    var normalized = name.toLowerCase().trim();
+                    if (normalized.includes('salt') || normalized.includes('pepper'))
+                        return true;
+                    return allowedIngredientNames.some(function (allowed) {
+                        return normalized === allowed ||
+                            normalized.includes(allowed) ||
+                            allowed.includes(normalized);
+                    });
+                };
+                filterIngredientsToAllowed = function (items) {
+                    if (!Array.isArray(items))
+                        return [];
+                    return items
+                        .map(function (item) {
+                        if (typeof item === 'string') {
+                            return { name: item, amount: 'to taste' };
+                        }
+                        return item;
+                    })
+                        .filter(function (item) { return isAllowedIngredientName(item === null || item === void 0 ? void 0 : item.name); });
+                };
                 recipe = void 0;
                 try {
                     recipe = JSON.parse(aiResponse);
@@ -491,6 +546,26 @@ var corsHeaders = {
                         if (!recipe.mealName || !recipe.ingredients || !recipe.preparationMethod) {
                             throw new Error('Missing required recipe fields for easy mode');
                         }
+                        filteredIngredients = filterIngredientsToAllowed(recipe.ingredients);
+                parsePriceValue = function (value) {
+                    if (typeof value === 'number' && isFinite(value))
+                        return Number(value.toFixed(2));
+                    if (typeof value === 'string') {
+                        var normalized = value.replace(/[^0-9.,-]/g, '').replace(/,/g, '');
+                        var parsed = parseFloat(normalized);
+                        return isNaN(parsed) ? null : Number(parsed.toFixed(2));
+                    }
+                    return null;
+                };
+                        if (filteredIngredients.length === 0) {
+                            throw new Error('No valid ingredients remained after filtering to allowed ingredients');
+                        }
+                        recipe.ingredients = filteredIngredients;
+                        restaurantPrice = parsePriceValue(recipe.restaurantPrice || recipe.restaurant_price);
+                        homemadePrice = parsePriceValue(recipe.homemadePrice || recipe.homemade_price || recipe.homePrice);
+                        priceCurrency = typeof recipe.currency === 'string' && recipe.currency.trim()
+                            ? recipe.currency.trim().toUpperCase()
+                            : userCurrency;
                         servingsValue = recipe.servings && !isNaN(parseInt(recipe.servings, 10))
                             ? Math.max(1, Math.min(10, parseInt(recipe.servings, 10)))
                             : servingsCount;
@@ -508,7 +583,10 @@ var corsHeaders = {
                                 : "Serves ".concat(servingsValue, " \u2022 Easy Mode recipe"),
                             calorie_warning: null,
                             macro_warning: null,
-                            servings: servingsValue
+                            servings: servingsValue,
+                            restaurant_price: restaurantPrice,
+                            homemade_price: homemadePrice,
+                            price_currency: priceCurrency
                         };
                         recipe = convertedRecipe;
                     }
@@ -538,6 +616,11 @@ var corsHeaders = {
                                 warningMessage = "⚠️ Macros calculated from actual ingredients may differ from estimates.";
                             }
                         }
+                        restaurantPrice = parsePriceValue(recipe.restaurantPrice || recipe.restaurant_price);
+                        homemadePrice = parsePriceValue(recipe.homemadePrice || recipe.homemade_price || recipe.homePrice);
+                        priceCurrency = typeof recipe.currency === 'string' && recipe.currency.trim()
+                            ? recipe.currency.trim().toUpperCase()
+                            : userCurrency;
                         convertedRecipe = {
                             title: recipe.mealName,
                             ingredients: recipe.ingredients,
@@ -550,7 +633,10 @@ var corsHeaders = {
                             description: warningMessage || recipe.message || "Smart AI generated recipe",
                             calorie_warning: (warningMessage === null || warningMessage === void 0 ? void 0 : warningMessage.includes('⚠️')) ? warningMessage : null,
                             macro_warning: (warningMessage === null || warningMessage === void 0 ? void 0 : warningMessage.includes('⚠️')) ? warningMessage : null,
-                            servings: servingsCount
+                            servings: servingsCount,
+                            restaurant_price: restaurantPrice,
+                            homemade_price: homemadePrice,
+                            price_currency: priceCurrency
                         };
                         recipe = convertedRecipe;
                     }
@@ -588,7 +674,10 @@ var corsHeaders = {
                             description: "Easy Mode fallback recipe \u2022 Serves ".concat(servingsCount),
                             calorie_warning: null,
                             macro_warning: null,
-                            servings: servingsCount
+                            servings: servingsCount,
+                            restaurant_price: null,
+                            homemade_price: null,
+                            price_currency: userCurrency
                         };
                     }
                     else {
@@ -606,7 +695,10 @@ var corsHeaders = {
                             description: "Fallback recipe with realistic portions",
                             calorie_warning: "⚠️ No exact match found — generated closest possible meal.",
                             macro_warning: "⚠️ No exact match found — generated closest possible meal.",
-                            servings: servingsCount
+                            servings: servingsCount,
+                            restaurant_price: null,
+                            homemade_price: null,
+                            price_currency: userCurrency
                         };
                     }
                 }
@@ -638,6 +730,9 @@ var corsHeaders = {
                     protein: typeof recipe.total_protein === 'number' ? Math.round(recipe.total_protein) : null,
                     carbs: typeof recipe.total_carbs === 'number' ? Math.round(recipe.total_carbs) : null,
                     fats: typeof recipe.total_fats === 'number' ? Math.round(recipe.total_fats) : null,
+                    restaurant_price: typeof recipe.restaurant_price === 'number' ? recipe.restaurant_price : null,
+                    homemade_price: typeof recipe.homemade_price === 'number' ? recipe.homemade_price : null,
+                    price_currency: recipe.price_currency || userCurrency,
                     tags: mealTags,
                     calorie_warning: recipe.calorie_warning || null,
                     macro_warning: recipe.macro_warning || null,

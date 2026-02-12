@@ -18,6 +18,7 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   
   // Checkbox states
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -46,6 +47,7 @@ const Register = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEmailError(null);
     
     if (password.length < 8) {
       toast.error(passwordPolicyText);
@@ -92,7 +94,13 @@ const Register = () => {
       });
 
       if (error) {
-        toast.error(friendlyAuthError(error.message));
+        const message = error.message?.toLowerCase?.() || "";
+        if (message.includes("user already registered") || message.includes("email already exists")) {
+          setEmailError("This email is already in use");
+          toast.error("This email is already in use. Try signing in instead.");
+        } else {
+          toast.error(friendlyAuthError(error.message));
+        }
       } else if (data.user) {
         // Update the profile with marketing preference, username, and GDPR consent
         // Trigger should create profile automatically, but update it if needed
@@ -160,9 +168,18 @@ const Register = () => {
                 type="email"
                 placeholder="your@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) {
+                    setEmailError(null);
+                  }
+                }}
                 required
+                className={emailError ? "border-destructive focus-visible:ring-destructive" : undefined}
               />
+              {emailError && (
+                <p className="text-sm text-destructive mt-1">{emailError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>

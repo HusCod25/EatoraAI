@@ -17,12 +17,39 @@ export const useUserActivity = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchUserActivity();
-    } else {
+    if (!user) {
       setActivity(null);
       setLoading(false);
+      return;
     }
+
+    // Initial fetch when user is available
+    fetchUserActivity();
+
+    // Listen for global activity updates (e.g. from MealGenerator)
+    // so multiple components using this hook stay in sync without refresh
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<Partial<UserActivity>>;
+      const updates = customEvent.detail;
+
+      if (!updates) {
+        // If no payload was provided, fall back to a fresh fetch
+        fetchUserActivity();
+        return;
+      }
+
+      setActivity(prev => prev ? { ...prev, ...updates } : prev);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("user-activity:updated", handler as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("user-activity:updated", handler as EventListener);
+      }
+    };
   }, [user]);
 
   const fetchUserActivity = async () => {
@@ -134,11 +161,28 @@ export const useUserActivity = () => {
         throw err;
       }
 
-      setActivity(prev => prev ? {
-        ...prev,
-        meals_generated: newCount,
-        weekly_meals_used: prev.weekly_meals_used + 1
-      } : null);
+      setActivity(prev => {
+        if (!prev) return prev;
+
+        const updated: UserActivity = {
+          ...prev,
+          meals_generated: prev.meals_generated + 1,
+          weekly_meals_used: prev.weekly_meals_used + 1
+        };
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent<Partial<UserActivity>>("user-activity:updated", {
+              detail: {
+                meals_generated: updated.meals_generated,
+                weekly_meals_used: updated.weekly_meals_used
+              }
+            })
+          );
+        }
+
+        return updated;
+      });
     } catch (error) {
       logger.error("Error incrementing meals generated:", error);
     }
@@ -164,10 +208,24 @@ export const useUserActivity = () => {
         throw err;
       }
 
-      setActivity(prev => prev ? {
-        ...prev,
-        saved_recipes: newCount
-      } : null);
+      setActivity(prev => {
+        if (!prev) return prev;
+
+        const updated: UserActivity = {
+          ...prev,
+          saved_recipes: newCount
+        };
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent<Partial<UserActivity>>("user-activity:updated", {
+              detail: { saved_recipes: updated.saved_recipes }
+            })
+          );
+        }
+
+        return updated;
+      });
     } catch (error) {
       logger.error("Error incrementing saved recipes:", error);
     }
@@ -185,10 +243,24 @@ export const useUserActivity = () => {
 
       if (error) throw error;
 
-      setActivity(prev => prev ? {
-        ...prev,
-        saved_recipes: newCount
-      } : null);
+      setActivity(prev => {
+        if (!prev) return prev;
+
+        const updated: UserActivity = {
+          ...prev,
+          saved_recipes: newCount
+        };
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent<Partial<UserActivity>>("user-activity:updated", {
+              detail: { saved_recipes: updated.saved_recipes }
+            })
+          );
+        }
+
+        return updated;
+      });
     } catch (error) {
       logger.error("Error decrementing saved recipes:", error);
     }

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Settings, Star, LogOut, Shield, Package, Users, CheckCircle, XCircle, ListChecks } from "lucide-react";
+import { Settings, Star, LogOut, Shield, Package, Users, CheckCircle, XCircle, ListChecks, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,11 +19,15 @@ import { MyAddedIngredients } from "./MyAddedIngredients";
 import { AddIngredientSection } from "@/components/AddIngredientSection";
 import { AddIngredientModal } from "@/components/AddIngredientModal";
 import { PantryStaplesDialog } from "./PantryStaplesDialog";
+import { BudgetingSetupDialog } from "./BudgetingSetupDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserProfile {
   phone_number?: string;
   username?: string;
+  country?: string;
+  currency?: string;
+  budgeting_enabled?: boolean;
 }
 
 export const UserAccount = () => {
@@ -35,9 +39,11 @@ export const UserAccount = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [settingsScrollToCancel, setSettingsScrollToCancel] = useState(false);
+  const [totalSavings, setTotalSavings] = useState(0);
   const [showMyIngredients, setShowMyIngredients] = useState(false);
   const [showAddIngredientModal, setShowAddIngredientModal] = useState(false);
   const [showPantryStaples, setShowPantryStaples] = useState(false);
+  const [showBudgetingSetup, setShowBudgetingSetup] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const hasShownSuccessToast = useRef(false);
@@ -172,8 +178,42 @@ export const UserAccount = () => {
   useEffect(() => {
     if (user) {
       fetchUserProfile();
+      fetchTotalSavings();
     }
   }, [user]);
+  
+  // Local event-based updates for budgeting savings (no full page refresh)
+  useEffect(() => {
+    if (!user) return;
+
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ amount: number }>;
+      const amount = customEvent.detail?.amount;
+      if (typeof amount === 'number' && !isNaN(amount)) {
+        setTotalSavings((prev) => prev + amount);
+      }
+    };
+
+    window.addEventListener('budget:savings-added', handler as EventListener);
+
+    return () => {
+      window.removeEventListener('budget:savings-added', handler as EventListener);
+    };
+  }, [user]);
+
+  const fetchTotalSavings = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .rpc('get_user_total_savings', { p_user_id: user.id });
+
+      if (error) throw error;
+      setTotalSavings(Number(data || 0));
+    } catch (err) {
+      logger.error('Error fetching total savings:', err);
+      setTotalSavings(0);
+    }
+  };
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -182,7 +222,7 @@ export const UserAccount = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("phone_number, username")
+        .select("phone_number, username, country, currency, budgeting_enabled")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -348,6 +388,74 @@ export const UserAccount = () => {
         </div>
       </div>
 
+      {/* Budgeting Setup Section */}
+      <div className="py-4 border-t border-b space-y-3">
+        <Button 
+          variant="outline" 
+          className="w-full justify-start h-auto py-3"
+          onClick={() => {
+            if (userProfile?.country) {
+              toast.error("Budgeting settings are locked. Please contact support at support@snacksy.app to make changes.");
+            } else {
+              setShowBudgetingSetup(true);
+            }
+          }}
+        >
+          <DollarSign className="h-4 w-4 mr-2" />
+          <div className="flex flex-col items-start">
+            <span className="font-medium">Budgeting Setup</span>
+            <span className="text-xs text-muted-foreground">Track money saved by cooking at home</span>
+          </div>
+        </Button>
+
+        {/* Money Saved Display */}
+        <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Total Money Saved</p>
+              <p className="text-2xl font-bold text-primary">
+                {userProfile?.currency === 'USD' && '$'}
+                {userProfile?.currency === 'EUR' && '€'}
+                {userProfile?.currency === 'GBP' && '£'}
+                {userProfile?.currency === 'JPY' && '¥'}
+                {userProfile?.currency === 'CNY' && '¥'}
+                {userProfile?.currency === 'AUD' && 'A$'}
+                {userProfile?.currency === 'CAD' && 'C$'}
+                {userProfile?.currency === 'CHF' && 'CHF '}
+                {userProfile?.currency === 'INR' && '₹'}
+                {userProfile?.currency === 'MXN' && 'MX$'}
+                {userProfile?.currency === 'BRL' && 'R$'}
+                {userProfile?.currency === 'KRW' && '₩'}
+                {userProfile?.currency === 'RUB' && '₽'}
+                {userProfile?.currency === 'SEK' && 'kr '}
+                {userProfile?.currency === 'NZD' && 'NZ$'}
+                {userProfile?.currency === 'SGD' && 'S$'}
+                {userProfile?.currency === 'HKD' && 'HK$'}
+                {userProfile?.currency === 'NOK' && 'kr '}
+                {userProfile?.currency === 'TRY' && '₺'}
+                {userProfile?.currency === 'ZAR' && 'R'}
+                {userProfile?.currency === 'RON' && 'lei '}
+                {userProfile?.currency === 'HUF' && 'Ft '}
+                {!userProfile?.currency && '$'}
+                {totalSavings.toFixed(2)}
+              </p>
+            </div>
+            <div className="bg-primary/10 rounded-full p-3">
+              <DollarSign className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          {!userProfile?.budgeting_enabled || !userProfile?.currency ? (
+            <p className="text-xs text-muted-foreground mt-2">
+              Setup Budgeting to start saving money
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-2">
+              By cooking at home instead of eating out
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Activity Stats */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium">Your Activity & Limits</h3>
@@ -488,6 +596,17 @@ export const UserAccount = () => {
       </Dialog>
 
       <PantryStaplesDialog open={showPantryStaples} onOpenChange={setShowPantryStaples} />
+
+      <BudgetingSetupDialog 
+        open={showBudgetingSetup} 
+          onOpenChange={(open) => {
+            setShowBudgetingSetup(open);
+            if (!open) {
+              // Refresh profile when dialog closes to update currency display
+              fetchUserProfile();
+            }
+          }}
+      />
 
       <AddIngredientModal 
         open={showAddIngredientModal} 

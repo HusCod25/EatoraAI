@@ -19,7 +19,7 @@ serve(async (req) => {
   try {
     const requestBody = await req.json();
     const { ingredients, calories, protein, carbs, fats, mode = 'nutri', servings } = requestBody;
-    const isEasyMode = mode === 'easy';
+    const isEasyMode = true;
     const parseServings = (value: unknown): number => {
       if (typeof value === 'number' && !isNaN(value)) return Math.max(1, Math.min(10, Math.round(value)));
       if (typeof value === 'string') {
@@ -29,7 +29,7 @@ serve(async (req) => {
       return 2;
     };
     const servingsCount = parseServings(servings);
-    const parsedCalories = !isEasyMode && calories ? parseInt(calories, 10) : null;
+    const parsedCalories = null;
 
     // Validate required fields
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
@@ -39,12 +39,6 @@ serve(async (req) => {
       });
     }
 
-    if (!isEasyMode && (parsedCalories === null || isNaN(parsedCalories))) {
-      return new Response(JSON.stringify({ error: 'Valid calories value is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -65,6 +59,88 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Get user's profile for country/currency
+    let userCountry = 'United States';
+    let userCurrency = 'USD';
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('country, currency')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!profileError && profile) {
+        userCountry = profile.country || userCountry;
+        userCurrency = profile.currency || userCurrency;
+      }
+    } catch (profileError) {
+      console.error('Error fetching profile, defaulting country/currency:', profileError);
+    }
+
+    // Get country pricing configuration (price index, restaurant multiplier, and base fee)
+    const USA_INDEX = 100;
+    let priceIndex = USA_INDEX;
+    let restaurantMultiplier = 3.0;
+    let baseRestaurantFeeUsd = 0;
+    let hadCountryConfig = false; // track if we successfully loaded config from DB
+    try {
+      const { data: countryConfig, error: countryError } = await supabase
+        .from('country_price_config')
+        .select('price_index, restaurant_multiplier, base_restaurant_fee_usd')
+        .eq('country', userCountry)
+        .maybeSingle();
+
+      console.log('Country price config for user:', {
+        userCountry,
+        countryConfig,
+        countryError,
+      });
+
+      if (!countryError && countryConfig) {
+        hadCountryConfig = true;
+        if (typeof countryConfig.price_index === 'number' && countryConfig.price_index > 0) {
+          priceIndex = countryConfig.price_index;
+        }
+        if (typeof countryConfig.restaurant_multiplier === 'number' && countryConfig.restaurant_multiplier > 0) {
+          restaurantMultiplier = countryConfig.restaurant_multiplier;
+        }
+
+        const rawBaseFee = (countryConfig as any).base_restaurant_fee_usd;
+
+        if (typeof rawBaseFee === 'number' && rawBaseFee >= 0) {
+          baseRestaurantFeeUsd = rawBaseFee;
+        } else if (typeof rawBaseFee === 'string') {
+          const parsed = parseFloat(rawBaseFee);
+          if (!isNaN(parsed) && parsed >= 0) {
+            baseRestaurantFeeUsd = parsed;
+          }
+        }
+      }
+    } catch (countryConfigError) {
+      console.error('Error fetching country price config, using defaults:', countryConfigError);
+    }
+
+    // Fallback: if no DB config was found, apply a hardcoded pricing
+    // profile for certain countries so users still get realistic prices.
+    if (!hadCountryConfig) {
+      const hardcodedPricing: Record<string, { priceIndex: number; restaurantMultiplier: number; baseRestaurantFeeUsd: number }> = {
+        'United States': { priceIndex: 100, restaurantMultiplier: 3.2, baseRestaurantFeeUsd: 10 },
+      };
+
+      const fallback = hardcodedPricing[userCountry];
+      if (fallback) {
+        priceIndex = fallback.priceIndex;
+        restaurantMultiplier = fallback.restaurantMultiplier;
+        baseRestaurantFeeUsd = fallback.baseRestaurantFeeUsd;
+        console.log('Applied hardcoded country pricing fallback:', {
+          userCountry,
+          priceIndex,
+          restaurantMultiplier,
+          baseRestaurantFeeUsd,
+        });
+      }
     }
 
     // Get user's subscription plan to determine GPT model
@@ -240,7 +316,7 @@ serve(async (req) => {
           .join('\n')
       : '';
 
-    const servingsInstruction = `Create a meal using ONLY the user's ingredients and divide the recipe appropriately for ${servingsCount} servings. Ensure the ingredient quantities and instructions reflect the number of portions.${isEasyMode ? ' Do not calculate calories or macros. Focus only on correct ingredient scaling.' : ''}`;
+    const servingsInstruction = `Create a meal using ONLY the user's ingredients and divide the recipe appropriately for ${servingsCount} servings. Ensure the ingredient quantities and instructions reflect the number of portions.${isEasyMode ? ' Do not calculate calories or macros. Focus only on correct ingredient scaling and realistic per-person portions.' : ''}`;
 
     const targetGoalsSection = isEasyMode
       ? [
@@ -302,11 +378,14 @@ serve(async (req) => {
           '  "ingredients": [',
           '    {"name": "Chicken breast", "amount": "150g"},',
           '    {"name": "Rice", "amount": "100g"},',
-          '    {"name": "Olive oil", "amount": "1 tsp (optional)"},',
-          '    {"name": "Salt", "amount": "to taste (optional)"}',
+          '    {"name": "Salt", "amount": "to taste (optional)"},',
+          '    {"name": "Pepper", "amount": "to taste (optional)"}',
           '  ],',
           '  "preparationMethod": "1. PREP WORK: Rinse 100g of rice under cold running water in a strainer until the water runs clear. This removes excess starch and prevents clumping.\\n\\n2. HEAT THE PAN: Heat 1 tsp of olive oil in a large pan over medium heat (setting 5-6 out of 10). Wait until the oil shimmers slightly, about 30-45 seconds.\\n\\n3. COOK PROTEIN: Place the 150g chicken breast in the pan. You should hear a gentle sizzle. Cook for 6-7 minutes without moving it. The chicken is ready to flip when the edges turn white (about 1cm up the sides) and the bottom is golden brown.\\n\\n[Continue with more detailed cooking steps]\\n\\n**SERVE:**\\n\\n21. PLATING: Arrange the fluffy rice on a plate as a base.\\n\\n22. ADD PROTEIN: Place the cooked chicken on top of or alongside the rice.\\n\\n23. FINISHING TOUCHES: Optionally, drizzle with a little extra lemon juice or olive oil for added flavor.\\n\\n24. PRESENTATION: Garnish with fresh herbs if available for a restaurant-quality look.\\n\\n25. ENJOY: Take a moment to admire your creation before digging in. You have made a delicious, balanced meal all by yourself!",',
-          '  "message": "A short, encouraging message for the user."',
+          '  "message": "A short, encouraging message for the user.",',
+          '  "restaurantPrice": 45.00,',
+          '  "homemadePrice": 14.50,',
+          `  "currency": "${userCurrency}"`,
           '}'
         ].join('\n')
       : [
@@ -326,13 +405,47 @@ serve(async (req) => {
           '    "carbs": 58,',
           '    "fats": 12',
           '  },',
-          '  "message": "✅ Meal generated within target macros." or "⚠️ No exact match found — generated closest possible meal."',
+          '  "message": "✅ Meal generated within target macros." or "⚠️ No exact match found — generated closest possible meal.",',
+          '  "restaurantPrice": 45.00,',
+          '  "homemadePrice": 14.50,',
+          `  "currency": "${userCurrency}"`,
           '}'
         ].join('\n');
 
+    const allowedIngredientNames = ingredientsWithNutrition
+      .map((ing: any) => (ing?.name || '').toString().trim().toLowerCase())
+      .filter(Boolean);
+
+    const allowedIngredientNamesDisplay = ingredientsWithNutrition
+      .map((ing: any) => (ing?.name || '').toString().trim())
+      .filter(Boolean);
+
+    const ingredientStrictSection = isEasyMode
+      ? `STRICT INGREDIENT RULES (EASY MODE):
+- You may ONLY use ingredients from the "Available ingredients" list below (this list already includes any pantry staples the user selected)
+- Do NOT add extra vegetables, grains, sauces, oils, or spices that are NOT listed
+- If the user only provides 1-2 ingredients, you must create a simple dish using ONLY those ingredients
+- The ONLY exceptions are salt and pepper (optional)
+
+ALLOWED INGREDIENT NAMES:
+${allowedIngredientNamesDisplay.map((name) => `- ${name}`).join('\n')}`
+      : '';
+
     const userMessageSections = [
-      `You are a smart meal generator that creates realistic, balanced meals. Your goal is to generate meals that are both nutritious and practical.`,
-      `SMART INGREDIENT USAGE RULES:
+      isEasyMode
+        ? `You are a simple, beginner-friendly meal generator. Your goal is to create realistic, everyday portions that feel normal for the requested number of servings.`
+        : `You are a smart meal generator that creates realistic, balanced meals. Your goal is to generate meals that are both nutritious and practical.`,
+      isEasyMode
+        ? `SMART INGREDIENT USAGE RULES (EASY MODE):
+- Use REALISTIC, NORMAL portions per person (avoid oversized servings)
+- For protein: typically 100-160g per person
+- For carbs (rice, pasta, etc.): typically 50-80g DRY per person
+- For vegetables: 80-150g per person
+- For fats: 5-15g per person
+- Total amounts must scale with the number of servings (e.g., 2 servings ≈ double the per-person amounts)
+- NEVER use more than available quantity, but use sensible portions
+- If an ingredient amount seems too large for the servings, reduce it`
+        : `SMART INGREDIENT USAGE RULES:
 - Use REALISTIC portions, not all available ingredients
 - For protein: typically 100-180g per meal
 - For carbs (rice, pasta, etc.): typically 60-120g per meal  
@@ -394,12 +507,17 @@ ${usedProteins.length > 0 ? `Proteins already used in recent meals: ${[...new Se
 - If you've been using chicken, switch to beef (or vice versa)
 - Create variety by rotating through ALL available proteins` : 'Rotate through all available proteins - use different ones in different meals.'}` : availableProteins.length === 1 ? `You have one protein available: ${availableProteins[0]}. Use it in this meal.` : 'No specific proteins detected - use appropriate protein sources from available ingredients.'}`,
       targetGoalsSection,
+      `PRICING PLACEHOLDER (BACKEND HANDLES REAL PRICES):
+    - Country: ${userCountry}
+    - Currency: ${userCurrency}
+    - Servings: ${servingsCount} (prices shown to the user are for the total number of servings)
+    - The backend will calculate realistic local prices using ingredient costs and country-specific multipliers
+    - You MUST still return numeric restaurantPrice and homemadePrice fields in the JSON, but you can set them to 0
+    - Do NOT try to guess real-world prices or currencies`,
       `OPTIONAL CONDIMENTS:
-You can add these as optional ingredients (they don't significantly affect calories):
-- Salt, pepper, herbs, spices
-- Olive oil (1-2 tsp)
-- Lemon juice, vinegar
-- Basic seasonings`,
+    You can add these as optional ingredients:
+    - Salt (optional)
+    - Pepper (optional)`,
       `MEAL REALISM:
 - Create balanced, tasty meals (not just ingredient dumps)
 - Choose logical meal formats (stir fry, bowl, salad, pasta, etc.)
@@ -407,6 +525,7 @@ You can add these as optional ingredients (they don't significantly affect calor
 - Make it something someone would actually want to eat`,
       macroToleranceSection,
       duplicatesSection,
+      ingredientStrictSection,
       availableIngredientsSection,
       returnFormat
     ].filter(Boolean);
@@ -594,6 +713,188 @@ You can add these as optional ingredients (they don't significantly affect calor
       };
     };
 
+    // Helper function to calculate homemade and restaurant prices from recipe ingredients
+    const calculatePricesFromRecipeIngredients = async (
+      recipeIngredients: any[],
+      priceIndex: number,
+      restaurantMultiplier: number,
+      baseRestaurantFeeUsd: number,
+      userCurrency: string
+    ): Promise<{ homemadePrice: number | null; restaurantPrice: number | null }> => {
+      try {
+        if (!Array.isArray(recipeIngredients) || recipeIngredients.length === 0) {
+          return { homemadePrice: null, restaurantPrice: null };
+        }
+
+        // Fetch ingredient price index data (IndexPrice in USD per 100g)
+        const { data: ingredientRows, error: ingredientError } = await supabase
+          .from('Ingredients')
+          .select('name, "IndexPrice"');
+
+        if (ingredientError) {
+          console.error('Error fetching ingredient price data:', ingredientError);
+          return { homemadePrice: null, restaurantPrice: null };
+        }
+
+        if (!ingredientRows || ingredientRows.length === 0) {
+          return { homemadePrice: null, restaurantPrice: null };
+        }
+
+        const basePriceMap: Record<string, number> = {};
+        for (const row of ingredientRows as any[]) {
+          const name = (row.name || '').toString().toLowerCase().trim();
+          const indexPrice = typeof row.IndexPrice === 'number' ? row.IndexPrice : null;
+          if (name && indexPrice !== null && indexPrice > 0) {
+            basePriceMap[name] = indexPrice;
+          }
+        }
+
+        if (Object.keys(basePriceMap).length === 0) {
+          return { homemadePrice: null, restaurantPrice: null };
+        }
+
+        const effectivePriceIndex = priceIndex > 0 ? priceIndex : USA_INDEX;
+        // For now we do NOT scale by country price index. We treat
+        // IndexPrice as a base USD price and only convert by currency,
+        // so that US pricing is the single source of truth and other
+        // countries are derived via FX.
+        const countryMultiplier = 1;
+
+        // Approximate currency conversion from USD to the user's currency.
+        // IndexPrice values are stored in USD; we convert them using a
+        // simple FX factor based on the user's selected currency.
+        const currencyCode = (userCurrency || 'USD').toUpperCase();
+        // Approximate FX multipliers: 1 USD -> X units of target currency.
+        // These are intentionally simple, static values (not real-time rates)
+        // to keep pricing stable and predictable across environments.
+        const currencyFxMap: Record<string, number> = {
+          USD: 1,
+          EUR: 0.92,
+          GBP: 0.8,
+          CAD: 1.35,
+          AUD: 1.5,
+          RON: 4.6,
+          JPY: 150,
+          CNY: 7.2,
+          CHF: 0.9,
+          INR: 83,
+          MXN: 17,
+          BRL: 5.2,
+          KRW: 1350,
+          RUB: 90,
+          SEK: 10.8,
+          NZD: 1.7,
+          SGD: 1.35,
+          HKD: 7.8,
+          NOK: 10.5,
+          TRY: 30,
+          ZAR: 19,
+          HUF: 360,
+        };
+        const fxRate = currencyFxMap[currencyCode] ?? 1;
+
+        // Convert the country base restaurant fee from USD to the user's currency.
+        const baseRestaurantFeeLocal = Math.max(0, (baseRestaurantFeeUsd || 0) * fxRate);
+
+        console.log('Price calculation config:', {
+          userCurrency: currencyCode,
+          fxRate,
+          baseRestaurantFeeUsd,
+          baseRestaurantFeeLocal,
+          restaurantMultiplier,
+          effectivePriceIndex,
+        });
+
+        let homemadeTotal = 0;
+
+        for (const recipeIng of recipeIngredients) {
+          const ingNameRaw = (recipeIng?.name || '').toString();
+          const ingNameLower = ingNameRaw.toLowerCase().trim();
+          if (!ingNameLower) continue;
+
+          // Try exact match first
+          let indexPrice = basePriceMap[ingNameLower];
+
+          // Fallback: fuzzy match by inclusion
+          if (indexPrice == null) {
+            const entry = Object.entries(basePriceMap).find(([baseName]) =>
+              baseName === ingNameLower ||
+              baseName.includes(ingNameLower) ||
+              ingNameLower.includes(baseName)
+            );
+            if (entry) {
+              indexPrice = entry[1];
+            }
+          }
+
+          if (indexPrice == null || indexPrice <= 0) continue;
+
+          const amountStr = recipeIng.amount || recipeIng.weight || '0g';
+          const gramsUsed = parseAmountToGrams(amountStr, ingNameRaw, null as any);
+          if (gramsUsed <= 0) continue;
+
+          // Convert base US price per 100g to local price per 100g in the user's currency
+          const localPricePer100g = indexPrice * countryMultiplier * fxRate;
+          const ingredientCost = localPricePer100g * (gramsUsed / 100);
+          homemadeTotal += ingredientCost;
+        }
+
+        if (homemadeTotal <= 0) {
+          return { homemadePrice: null, restaurantPrice: null };
+        }
+
+        const homemadePrice = Number(homemadeTotal.toFixed(2));
+        const multiplier = restaurantMultiplier > 0 ? restaurantMultiplier : 3.0;
+        const restaurantPrice = Number((homemadePrice * multiplier + baseRestaurantFeeLocal).toFixed(2));
+
+        console.log('Computed prices for recipe:', {
+          homemadeTotal,
+          homemadePrice,
+          multiplier,
+          baseRestaurantFeeLocal,
+          restaurantPrice,
+        });
+
+        return { homemadePrice, restaurantPrice };
+      } catch (priceCalcError) {
+        console.error('Error calculating prices from recipe ingredients:', priceCalcError);
+        return { homemadePrice: null, restaurantPrice: null };
+      }
+    };
+
+    const parsePriceValue = (value: unknown): number | null => {
+      if (typeof value === 'number' && isFinite(value)) return Number(value.toFixed(2));
+      if (typeof value === 'string') {
+        const normalized = value.replace(/[^0-9.,-]/g, '').replace(/,/g, '');
+        const parsed = parseFloat(normalized);
+        return isNaN(parsed) ? null : Number(parsed.toFixed(2));
+      }
+      return null;
+    };
+
+    const isAllowedIngredientName = (name: string): boolean => {
+      if (!name) return false;
+      const normalized = name.toLowerCase().trim();
+      if (normalized.includes('salt') || normalized.includes('pepper')) return true;
+      return allowedIngredientNames.some((allowed) =>
+        normalized === allowed ||
+        normalized.includes(allowed) ||
+        allowed.includes(normalized)
+      );
+    };
+
+    const filterIngredientsToAllowed = (items: any[]): any[] => {
+      if (!Array.isArray(items)) return [];
+      return items
+        .map((item) => {
+          if (typeof item === 'string') {
+            return { name: item, amount: 'to taste' };
+          }
+          return item;
+        })
+        .filter((item) => isAllowedIngredientName(item?.name));
+    };
+
     let recipe;
     try {
       recipe = JSON.parse(aiResponse);
@@ -602,6 +903,12 @@ You can add these as optional ingredients (they don't significantly affect calor
         if (!recipe.mealName || !recipe.ingredients || !recipe.preparationMethod) {
           throw new Error('Missing required recipe fields for easy mode');
         }
+
+        const filteredIngredients = filterIngredientsToAllowed(recipe.ingredients);
+        if (filteredIngredients.length === 0) {
+          throw new Error('No valid ingredients remained after filtering to allowed ingredients');
+        }
+        recipe.ingredients = filteredIngredients;
 
         const servingsValue = recipe.servings && !isNaN(parseInt(recipe.servings, 10))
           ? Math.max(1, Math.min(10, parseInt(recipe.servings, 10)))
@@ -623,7 +930,10 @@ You can add these as optional ingredients (they don't significantly affect calor
             : `Serves ${servingsValue} • Easy Mode recipe`,
           calorie_warning: null,
           macro_warning: null,
-          servings: servingsValue
+          servings: servingsValue,
+          restaurant_price: null,
+          homemade_price: null,
+          price_currency: userCurrency
         };
 
         recipe = convertedRecipe;
@@ -676,7 +986,10 @@ You can add these as optional ingredients (they don't significantly affect calor
         description: warningMessage || recipe.message || "Smart AI generated recipe",
         calorie_warning: warningMessage?.includes('⚠️') ? warningMessage : null,
           macro_warning: warningMessage?.includes('⚠️') ? warningMessage : null,
-          servings: servingsCount
+          servings: servingsCount,
+          restaurant_price: null,
+          homemade_price: null,
+          price_currency: userCurrency
       };
       
       recipe = convertedRecipe;
@@ -719,7 +1032,10 @@ You can add these as optional ingredients (they don't significantly affect calor
           description: `Easy Mode fallback recipe • Serves ${servingsCount}`,
           calorie_warning: null,
           macro_warning: null,
-          servings: servingsCount
+          servings: servingsCount,
+          restaurant_price: null,
+          homemade_price: null,
+          price_currency: userCurrency
         };
       } else {
         const fallbackCalories = Math.min(parsedCalories || 500, 600);
@@ -736,9 +1052,31 @@ You can add these as optional ingredients (they don't significantly affect calor
         description: "Fallback recipe with realistic portions",
         calorie_warning: "⚠️ No exact match found — generated closest possible meal.",
           macro_warning: "⚠️ No exact match found — generated closest possible meal.",
-          servings: servingsCount
+          servings: servingsCount,
+          restaurant_price: null,
+          homemade_price: null,
+          price_currency: userCurrency
       };
       }
+    }
+
+    // Calculate prices for the final recipe based on ingredient usage and country pricing
+    try {
+      const priceResult = await calculatePricesFromRecipeIngredients(
+        Array.isArray(recipe?.ingredients) ? recipe.ingredients : [],
+        priceIndex,
+        restaurantMultiplier,
+        baseRestaurantFeeUsd,
+        userCurrency
+      );
+
+      if (priceResult) {
+        recipe.homemade_price = priceResult.homemadePrice;
+        recipe.restaurant_price = priceResult.restaurantPrice;
+        recipe.price_currency = userCurrency;
+      }
+    } catch (priceCalcError) {
+      console.error('Error applying calculated prices to recipe:', priceCalcError);
     }
 
     // Save to Supabase
@@ -774,6 +1112,9 @@ You can add these as optional ingredients (they don't significantly affect calor
       protein: typeof recipe.total_protein === 'number' ? Math.round(recipe.total_protein) : null,
       carbs: typeof recipe.total_carbs === 'number' ? Math.round(recipe.total_carbs) : null,
       fats: typeof recipe.total_fats === 'number' ? Math.round(recipe.total_fats) : null,
+      restaurant_price: typeof recipe.restaurant_price === 'number' ? recipe.restaurant_price : null,
+      homemade_price: typeof recipe.homemade_price === 'number' ? recipe.homemade_price : null,
+      price_currency: recipe.price_currency || userCurrency,
       tags: mealTags,
       calorie_warning: recipe.calorie_warning || null,
       macro_warning: recipe.macro_warning || null,

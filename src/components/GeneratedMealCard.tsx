@@ -26,6 +26,9 @@ interface GeneratedMeal {
   created_at: string;
   calorie_warning?: string;
   macro_warning?: string;
+  restaurant_price?: number | null;
+  homemade_price?: number | null;
+  price_currency?: string | null;
 }
 
 interface GeneratedMealCardProps {
@@ -74,7 +77,10 @@ export const GeneratedMealCard = ({ meal, onSave, onDelete }: GeneratedMealCardP
             protein: sanitizedMeal.protein || 0,
             carbs: sanitizedMeal.carbs || 0,
             fats: sanitizedMeal.fats || 0,
-            saved_from_generated_id: sanitizedMeal.id
+            saved_from_generated_id: sanitizedMeal.id,
+            restaurant_price: sanitizedMeal.restaurant_price ?? null,
+            homemade_price: sanitizedMeal.homemade_price ?? null,
+            price_currency: sanitizedMeal.price_currency ?? null
           });
 
         if (error) throw error;

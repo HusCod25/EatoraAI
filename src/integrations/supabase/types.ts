@@ -15,6 +15,9 @@ export type Database = {
   public: {
     Tables: {
       generated_meals: {
+          homemade_price: number | null
+          price_currency: string | null
+          restaurant_price: number | null
         Row: {
           calorie_warning: string | null
           calories: number | null
@@ -32,6 +35,9 @@ export type Database = {
           tags: string[] | null
           title: string
           user_id: string
+          homemade_price?: number | null
+          price_currency?: string | null
+          restaurant_price?: number | null
         }
         Insert: {
           calorie_warning?: string | null
@@ -49,6 +55,9 @@ export type Database = {
           protein?: number | null
           tags?: string[] | null
           title: string
+          homemade_price?: number | null
+          price_currency?: string | null
+          restaurant_price?: number | null
           user_id: string
         }
         Update: {
@@ -138,7 +147,10 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          budgeting_enabled: boolean | null
+          country: string | null
           created_at: string
+          currency: string | null
           date_of_birth: string | null
           id: string
           marketing_opt_in: boolean | null
@@ -151,7 +163,10 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          budgeting_enabled?: boolean | null
+          country?: string | null
           created_at?: string
+          currency?: string | null
           date_of_birth?: string | null
           id?: string
           marketing_opt_in?: boolean | null
@@ -164,7 +179,10 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          budgeting_enabled?: boolean | null
+          country?: string | null
           created_at?: string
+          currency?: string | null
           date_of_birth?: string | null
           id?: string
           marketing_opt_in?: boolean | null
@@ -186,8 +204,11 @@ export type Database = {
           fats: number | null
           id: string
           ingredients: Json
+          homemade_price: number | null
+          price_currency: string | null
           preparation_method: string
           protein: number | null
+          restaurant_price: number | null
           saved_from_generated_id: string | null
           tags: string[] | null
           title: string
@@ -202,8 +223,11 @@ export type Database = {
           fats?: number | null
           id?: string
           ingredients: Json
+          homemade_price?: number | null
+          price_currency?: string | null
           preparation_method: string
           protein?: number | null
+          restaurant_price?: number | null
           saved_from_generated_id?: string | null
           tags?: string[] | null
           title: string
@@ -218,8 +242,11 @@ export type Database = {
           fats?: number | null
           id?: string
           ingredients?: Json
+          homemade_price?: number | null
+          price_currency?: string | null
           preparation_method?: string
           protein?: number | null
+          restaurant_price?: number | null
           saved_from_generated_id?: string | null
           tags?: string[] | null
           title?: string

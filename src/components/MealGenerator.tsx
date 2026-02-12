@@ -17,7 +17,6 @@ import { AddIngredientSection } from "@/components/AddIngredientSection";
 import { IngredientSearchInput } from "@/components/IngredientSearchInput";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -47,6 +46,9 @@ interface GeneratedMeal {
   created_at: string;
   calorie_warning?: string;
   macro_warning?: string;
+  restaurant_price?: number | null;
+  homemade_price?: number | null;
+  price_currency?: string | null;
 }
 
 interface GenerationConfig {
@@ -86,7 +88,7 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
   const [carbs, setCarbs] = useState("");
   const [fats, setFats] = useState("");
   const [showMacros, setShowMacros] = useState(false);
-  const [isEasyMode, setIsEasyMode] = useState(false);
+  const [isEasyMode, setIsEasyMode] = useState(true);
   const [servings, setServings] = useState("2");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -190,6 +192,7 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
   }, [user]);
 
   useEffect(() => {
+    setIsEasyMode(true);
     if (isEasyMode) {
       setShowMacros(false);
     }
@@ -325,7 +328,10 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
           cooking_time: latestGeneratedMeal.cooking_time,
           calories: latestGeneratedMeal.calories,
           tags: latestGeneratedMeal.tags,
-          saved_from_generated_id: latestGeneratedMeal.id
+          saved_from_generated_id: latestGeneratedMeal.id,
+          restaurant_price: latestGeneratedMeal.restaurant_price ?? null,
+          homemade_price: latestGeneratedMeal.homemade_price ?? null,
+          price_currency: latestGeneratedMeal.price_currency ?? null
         });
 
       if (error) throw error;
@@ -439,14 +445,17 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
 
     closeFreshMealDialog();
 
-    const generationConfig = overrideConfig ?? {
-      ingredients,
-      calories,
-      protein,
-      carbs,
-      fats,
-      isEasyMode,
-      servings,
+    const generationConfig = {
+      ...(overrideConfig ?? {
+        ingredients,
+        calories,
+        protein,
+        carbs,
+        fats,
+        isEasyMode,
+        servings,
+      }),
+      isEasyMode: true,
     };
 
     const {
@@ -471,12 +480,6 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
       return;
     }
 
-    const calorieTarget = parseInt(configCalories);
-    if (!configIsEasyMode && (!configCalories || isNaN(calorieTarget) || calorieTarget <= 0)) {
-      toast.error("Please enter a valid calorie target");
-      return;
-    }
-
     const servingsValue = Math.max(1, Math.min(10, parseInt(configServings || "2", 10) || 2));
 
     const configSnapshot: GenerationConfig = {
@@ -485,7 +488,7 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
       protein: configProtein,
       carbs: configCarbs,
       fats: configFats,
-      isEasyMode: configIsEasyMode,
+      isEasyMode: true,
       servings: configServings,
     };
     setLastGenerationConfig(configSnapshot);
@@ -615,11 +618,11 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
       const { data, error } = await supabase.functions.invoke('generate-meal', {
         body: {
           ingredients: ingredientsWithNutrition,
-          calories: configIsEasyMode ? undefined : calorieTarget,
-          protein: !configIsEasyMode && configProtein ? parseInt(configProtein, 10) : undefined,
-          carbs: !configIsEasyMode && configCarbs ? parseInt(configCarbs, 10) : undefined,
-          fats: !configIsEasyMode && configFats ? parseInt(configFats, 10) : undefined,
-          mode: configIsEasyMode ? "easy" : "nutri",
+          calories: undefined,
+          protein: undefined,
+          carbs: undefined,
+          fats: undefined,
+          mode: "easy",
           servings: servingsValue
         }
       });
@@ -692,6 +695,44 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
     setDialogOpen(true);  
   };
 
+  const handleCookedMeal = async () => {
+    if (!user || !selectedMeal) return;
+
+    const restaurantPrice = typeof selectedMeal.restaurant_price === "number" ? selectedMeal.restaurant_price : null;
+    const homemadePrice = typeof selectedMeal.homemade_price === "number" ? selectedMeal.homemade_price : null;
+    const currency = selectedMeal.price_currency || null;
+
+    if (restaurantPrice === null || homemadePrice === null || !currency) {
+      toast.error("Missing price data for this meal. Generate a new one with pricing enabled.");
+      return;
+    }
+
+    const savingsAmount = Math.max(restaurantPrice - homemadePrice, 0);
+
+    try {
+      const { error } = await supabase
+        .from('budget_entries')
+        .insert({
+          user_id: user.id,
+          meal_id: selectedMeal.id,
+          meal_title: selectedMeal.title,
+          restaurant_price: restaurantPrice,
+          homemade_price: homemadePrice,
+          savings_amount: savingsAmount,
+          currency,
+        });
+
+      if (error) throw error;
+
+      toast.success("Added to your savings!");
+      // Notify other parts of the app (e.g., UserAccount) to update totals smoothly
+      window.dispatchEvent(new CustomEvent('budget:savings-added', { detail: { amount: savingsAmount } }));
+    } catch (error) {
+      logger.error('Error adding budget entry from generated meal:', error);
+      toast.error("Failed to add savings. Please try again.");
+    }
+  };
+
   const weeklyLimit = planLimits?.meals_per_week === null ? "∞" : planLimits?.meals_per_week || 10;
   const weeklyUsage = `${activity?.weekly_meals_used || 0}/${weeklyLimit}`;
   const isWeeklyLimitReached = planLimits && planLimits.meals_per_week !== null && (activity?.weekly_meals_used || 0) >= planLimits.meals_per_week;
@@ -750,16 +791,11 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-            <Label className="text-base font-medium">Create Your Perfect Meal</Label>
+              <Label className="text-base font-medium">Create Your Perfect Meal</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Easy Mode
+                <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                  Easy Mode active
                 </span>
-                <Switch 
-                  checked={isEasyMode} 
-                  onCheckedChange={setIsEasyMode}
-                  aria-label="Toggle Easy Mode"
-                />
               </div>
             </div>
             <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-card/80 p-6 shadow-[0_40px_120px_rgba(5,8,20,0.7)] backdrop-blur-2xl">
@@ -999,6 +1035,8 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
         meal={selectedMeal}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        showCookedAction
+        onCooked={handleCookedMeal}
       />
 
       <Dialog open={showIngredientsDialog} onOpenChange={setShowIngredientsDialog}>

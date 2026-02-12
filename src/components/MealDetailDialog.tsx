@@ -24,6 +24,9 @@ interface Meal {
   carbs?: number;
   fats?: number;
   tags?: string[];
+  restaurant_price?: number | null;
+  homemade_price?: number | null;
+  price_currency?: string | null;
 }
 
 interface MealActions {
@@ -40,9 +43,11 @@ interface MealDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   showActions?: boolean;
   actions?: MealActions;
+  showCookedAction?: boolean;
+  onCooked?: () => void;
 }
 
-export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false, actions }: MealDetailDialogProps) => {
+export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false, actions, showCookedAction = false, onCooked }: MealDetailDialogProps) => {
   if (!meal) return null;
 
   // Sanitize meal data for display
@@ -114,6 +119,26 @@ export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false
     ? instructions.slice(serveIndex + 1).filter(step => step.trim()) // Skip the "SERVE:" header
     : [];
 
+  const formatCurrency = (value: number, currencyCode?: string | null) => {
+    const currency = currencyCode || 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(value);
+    } catch {
+      return `${value.toFixed(2)} ${currency}`;
+    }
+  };
+
+  const restaurantPrice = typeof sanitizedMeal.restaurant_price === 'number' ? sanitizedMeal.restaurant_price : null;
+  const homemadePrice = typeof sanitizedMeal.homemade_price === 'number' ? sanitizedMeal.homemade_price : null;
+  const currencyCode = sanitizedMeal.price_currency || 'USD';
+  const savingsAmount = restaurantPrice !== null && homemadePrice !== null
+    ? Math.max(restaurantPrice - homemadePrice, 0)
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[82vh] overflow-y-auto rounded-[2rem] border border-white/10 bg-card shadow-[0_35px_120px_rgba(3,6,20,0.75)]">
@@ -174,6 +199,18 @@ export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false
                 </Button>
               </div>
             )}
+            {!showActions && showCookedAction && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onCooked}
+                disabled={!onCooked}
+                className="rounded-full border-primary/40 text-primary hover:bg-primary/10"
+              >
+                <Utensils className="mr-1 h-4 w-4" />
+                I cooked this
+              </Button>
+            )}
           </div>
           {sanitizedMeal.description && (
             <p className="text-muted-foreground mt-2 leading-relaxed">{sanitizedMeal.description}</p>
@@ -208,6 +245,32 @@ export const MealDetailDialog = ({ meal, open, onOpenChange, showActions = false
               </div>
             )}
           </div>
+
+          {(restaurantPrice !== null || homemadePrice !== null) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-lg border border-primary/10 bg-primary/5 p-4 text-sm">
+              {restaurantPrice !== null && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Restaurant estimate</div>
+                  <div className="font-semibold text-foreground">{formatCurrency(restaurantPrice, currencyCode)}</div>
+                </div>
+              )}
+              {homemadePrice !== null && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Home ingredients</div>
+                  <div className="font-semibold text-foreground">{formatCurrency(homemadePrice, currencyCode)}</div>
+                </div>
+              )}
+              {savingsAmount !== null && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Savings</div>
+                  <div className="font-semibold text-primary">{formatCurrency(savingsAmount, currencyCode)}</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Estimates shown are for all servings.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cooking Time & Tags */}
           <div className="flex items-center justify-between">

@@ -26,6 +26,9 @@ interface MealCardProps {
     expires_at?: string;
     calorie_warning?: string;
     macro_warning?: string;
+    restaurant_price?: number | null;
+    homemade_price?: number | null;
+    price_currency?: string | null;
   };
   type: 'generated' | 'saved';
   onDelete?: () => void;
@@ -80,6 +83,26 @@ export const MealCard = ({
     return `${minutes}m`;
   };
 
+  const formatCurrency = (value: number, currencyCode?: string | null) => {
+    const currency = currencyCode || 'USD';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(value);
+    } catch {
+      return `${value.toFixed(2)} ${currency}`;
+    }
+  };
+
+  const restaurantPrice = typeof sanitizedMeal.restaurant_price === 'number' ? sanitizedMeal.restaurant_price : null;
+  const homemadePrice = typeof sanitizedMeal.homemade_price === 'number' ? sanitizedMeal.homemade_price : null;
+  const currencyCode = sanitizedMeal.price_currency || 'USD';
+  const savingsAmount = restaurantPrice !== null && homemadePrice !== null
+    ? Math.max(restaurantPrice - homemadePrice, 0)
+    : null;
+
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -111,7 +134,10 @@ export const MealCard = ({
             protein: sanitizedMeal.protein || 0,
             carbs: sanitizedMeal.carbs || 0,
             fats: sanitizedMeal.fats || 0,
-            saved_from_generated_id: sanitizedMeal.id
+            saved_from_generated_id: sanitizedMeal.id,
+            restaurant_price: sanitizedMeal.restaurant_price ?? null,
+            homemade_price: sanitizedMeal.homemade_price ?? null,
+            price_currency: sanitizedMeal.price_currency ?? null
           });
 
         if (error) throw error;
@@ -271,6 +297,12 @@ export const MealCard = ({
                 <span className="text-foreground ml-1">{sanitizedMeal.fats}g</span>
               </div>
             )}
+          </div>
+        )}
+
+        {savingsAmount !== null && (
+          <div className="text-xs text-muted-foreground">
+            Savings: <span className="font-medium text-foreground">{formatCurrency(savingsAmount, currencyCode)}</span>
           </div>
         )}
 
