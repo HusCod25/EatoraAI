@@ -102,7 +102,14 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
   const [generationProgress, setGenerationProgress] = useState(0);
   const [showGenerationDialog, setShowGenerationDialog] = useState(false);
 
-  const units = ["grams", "kg", "ounces", "pieces", "cups", "tbsp", "tsp", "ml", "liters"];
+  const units = ["grams", "ml", "kg", "liters", "pieces"];
+  const unitLabels: Record<string, string> = {
+    grams: "grams",
+    ml: "ml",
+    kg: "kg",
+    liters: "l",
+    pieces: "pieces",
+  };
 
   const MEALS_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
@@ -504,13 +511,9 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
           try {
             // Convert quantity to grams for database lookup
             let quantityInGrams = parseFloat(ingredient.quantity);
-            
+
             // Convert other units to grams (approximate conversions)
             if (ingredient.unit === 'kg') quantityInGrams *= 1000;
-            else if (ingredient.unit === 'ounces') quantityInGrams *= 28.35;
-            else if (ingredient.unit === 'cups') quantityInGrams *= 240; // approximate for most ingredients
-            else if (ingredient.unit === 'tbsp') quantityInGrams *= 15;
-            else if (ingredient.unit === 'tsp') quantityInGrams *= 5;
             else if (ingredient.unit === 'ml') quantityInGrams *= 1; // assuming 1ml = 1g for liquids
             else if (ingredient.unit === 'liters') quantityInGrams *= 1000;
             
@@ -860,7 +863,7 @@ export const MealGenerator = ({ onMealGenerated, onMealsUpdated }: MealGenerator
                         <SelectContent>
                           {units.map((unit) => (
                             <SelectItem key={unit} value={unit}>
-                              {unit}
+                              {unitLabels[unit] ?? unit}
                             </SelectItem>
                           ))}
                         </SelectContent>

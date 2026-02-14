@@ -65,11 +65,8 @@ export const AdminPanel = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('pending_ingredients')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+      // Use secure RPC that verifies admin access server-side
+      const { data, error } = await supabase.rpc('get_all_pending_ingredients');
 
       if (error) {
         // Handle access denied errors

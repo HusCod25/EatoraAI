@@ -102,6 +102,17 @@ const Register = () => {
           toast.error(friendlyAuthError(error.message));
         }
       } else if (data.user) {
+        // Supabase quirk: if a user with this email already exists,
+        // signUp may succeed but return a user whose `identities` array is empty.
+        // We treat that as "email already in use" to give clear feedback.
+        const identities = (data.user as any).identities as any[] | undefined;
+        if (Array.isArray(identities) && identities.length === 0) {
+          setEmailError("This email is already in use");
+          toast.error("This email is already in use. Try signing in instead.");
+          setLoading(false);
+          return;
+        }
+
         // Update the profile with marketing preference, username, and GDPR consent
         // Trigger should create profile automatically, but update it if needed
         try {
@@ -134,8 +145,8 @@ const Register = () => {
           window.location.href = '/';
         } else {
           toast.success("Account created! Please check your email to verify your account.");
-          // Force page reload for clean state
-          window.location.href = '/signin';
+          // Redirect to a dedicated confirmation screen instead of straight to sign-in
+          navigate('/check-email');
         }
       }
     } catch (error) {
