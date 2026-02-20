@@ -23,6 +23,7 @@ interface BudgetingSetupDialogProps {
   onOpenChange: (open: boolean) => void;
   currentCountry?: string;
   currentCurrency?: string;
+  onCompleted?: () => void;
 }
 
 // Top 20 most used currencies
@@ -68,7 +69,8 @@ export const BudgetingSetupDialog = ({
   open, 
   onOpenChange,
   currentCountry = "",
-  currentCurrency = "USD"
+  currentCurrency = "USD",
+  onCompleted,
 }: BudgetingSetupDialogProps) => {
   const { user } = useAuth();
   const [country, setCountry] = useState(currentCountry);
@@ -109,6 +111,9 @@ export const BudgetingSetupDialog = ({
 
       toast.success("Budgeting settings saved!");
       onOpenChange(false);
+      if (onCompleted) {
+        onCompleted();
+      }
     } catch (error: any) {
       console.error('Error saving budgeting settings:', error);
       toast.error(error.message || "Failed to save settings");

@@ -52,11 +52,12 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
   const [language, setLanguage] = useState("en");
   const [notifications, setNotifications] = useState(true);
   
-  // Delete account state - two step confirmation
+  // Delete account state - multi-step confirmation
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showPasswordStep, setShowPasswordStep] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [deleteRetentionConsent, setDeleteRetentionConsent] = useState(false);
 
   // Cancel subscription state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -66,6 +67,14 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
   // Payment history state
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loadingPaymentData, setLoadingPaymentData] = useState(false);
+
+  // Determine if user currently has an active paid subscription that is not yet scheduled for cancellation
+  const hasActivePaidSubscription = !!(
+    subscription &&
+    subscription.plan !== "free" &&
+    subscription.stripe_subscription_id &&
+    !subscription.cancellation_requested_at
+  );
 
   useEffect(() => {
     if (user && open) {
@@ -213,6 +222,10 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
         toast.error("Please type 'delete' to confirm");
         return;
       }
+      if (!deleteRetentionConsent) {
+        toast.error("Please confirm that you agree to 10-day data retention");
+        return;
+      }
       // Move to password step
       setShowPasswordStep(true);
       return;
@@ -273,6 +286,7 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
     setDeleteConfirmText("");
     setShowPasswordStep(false);
     setDeletePassword("");
+    setDeleteRetentionConsent(false);
   };
 
   const handleCancelSubscription = async () => {
@@ -761,7 +775,12 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                 Danger Zone
               </CardTitle>
               <CardDescription>
-                Permanent actions that cannot be undone
+                Permanent actions that cannot be undone.
+                {hasActivePaidSubscription && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    You must cancel your paid subscription first before deleting your account.
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -778,7 +797,11 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                 }}
               >
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="flex items-center gap-2">
+                  <Button
+                    variant="destructive"
+                    className="flex items-center gap-2"
+                    disabled={hasActivePaidSubscription}
+                  >
                     <Trash2 className="h-4 w-4" />
                     Delete Account
                   </Button>
@@ -790,52 +813,88 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                       Delete Account?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        <div className="space-y-4">
+                      <div className="space-y-4">
                         {!showPasswordStep ? (
                           <>
-                          <div className="space-y-2">
-                            <p>This action will permanently delete your account and all associated data including:</p>
-                            <ul className="list-disc list-inside text-sm space-y-1 ml-4">
-                              <li>All your saved meals and recipes</li>
-                              <li>Your subscription and payment history</li>
-                              <li>Your profile and preferences</li>
-                              <li>All generated content</li>
-                            </ul>
-                            <p className="text-destructive font-medium">This action cannot be undone.</p>
-                          </div>
-                          <div>
-                              <Label htmlFor="delete-confirm">To confirm deletion, type <strong>"delete"</strong>:</Label>
-                            <Input
-                                id="delete-confirm"
-                              value={deleteConfirmText}
-                              onChange={(e) => setDeleteConfirmText(e.target.value)}
-                                placeholder="Type delete"
-                                className="mt-2"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && deleteConfirmText.toLowerCase() === 'delete') {
-                                    e.preventDefault();
-                                    handleDeleteAccount();
-                                  }
-                                }}
-                            />
-                          </div>
+                            <div className="space-y-2">
+                              <p>
+                                This will delete your account and stop access to Snacksy. For security and abuse prevention,
+                                we will securely keep a copy of your account data (profile, subscription, and usage limits)
+                                for <span className="font-semibold">10 days</span> after deletion. After 10 days, this data
+                                will be permanently removed.
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                If you log back in or create a new account with the same email during these 10 days, your
+                                previous limits and usage will be restored, your account will be reactivated with all of
+                                your saved meals and data, and it will no longer be scheduled for deletion once the
+                                10-day period ends.
+                              </p>
+                              <ul className="list-disc list-inside text-sm space-y-1 ml-4">
+                                <li>All your saved meals and recipes</li>
+                                <li>Your subscription and payment history</li>
+                                <li>Your profile and preferences</li>
+                                <li>All generated content</li>
+                              </ul>
+                              <p className="text-destructive font-medium">
+                                This action cannot be undone after the 10-day retention period.
+                              </p>
+                            </div>
+                            <div className="space-y-3 pt-2">
+                              <div>
+                                <Label htmlFor="delete-confirm">
+                                  To confirm deletion, type <strong>"delete"</strong>:
+                                </Label>
+                                <Input
+                                  id="delete-confirm"
+                                  value={deleteConfirmText}
+                                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                  placeholder="Type delete"
+                                  className="mt-2"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (
+                                      e.key === 'Enter' &&
+                                      deleteConfirmText.toLowerCase() === 'delete' &&
+                                      deleteRetentionConsent
+                                    ) {
+                                      e.preventDefault();
+                                      handleDeleteAccount();
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <input
+                                  id="delete-retention-consent"
+                                  type="checkbox"
+                                  className="mt-1 h-4 w-4"
+                                  checked={deleteRetentionConsent}
+                                  onChange={(e) => setDeleteRetentionConsent(e.target.checked)}
+                                />
+                                <Label htmlFor="delete-retention-consent" className="text-sm leading-snug">
+                                  I understand and agree that my account data will be stored securely for 10 days after
+                                  deletion to prevent abuse, and that if I log back in or sign up again with the same
+                                  email during this period my account will be reactivated with all of my data and will no
+                                  longer be scheduled for deletion.
+                                </Label>
+                              </div>
+                            </div>
                           </>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <p className="text-destructive font-medium">Final confirmation required</p>
-                            <p>Please enter your password to permanently delete your account:</p>
-                          </div>
-                          <div>
-                            <Label htmlFor="delete-password">Current Password</Label>
-                            <Input
-                              id="delete-password"
-                              type="password"
-                              value={deletePassword}
-                              onChange={(e) => setDeletePassword(e.target.value)}
-                              placeholder="Enter your password"
-                              className="mt-2"
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <p className="text-destructive font-medium">Final confirmation required</p>
+                              <p>Please enter your password to delete your account:</p>
+                            </div>
+                            <div>
+                              <Label htmlFor="delete-password">Current Password</Label>
+                              <Input
+                                id="delete-password"
+                                type="password"
+                                value={deletePassword}
+                                onChange={(e) => setDeletePassword(e.target.value)}
+                                placeholder="Enter your password"
+                                className="mt-2"
                                 autoFocus
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' && deletePassword) {
@@ -843,10 +902,10 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                                     handleDeleteAccount();
                                   }
                                 }}
-                            />
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                       </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -857,10 +916,14 @@ export const SettingsDialog = ({ open, onOpenChange, onUpgradeClick, scrollToCan
                     {!showPasswordStep ? (
                       <Button
                         onClick={handleDeleteAccount}
-                        disabled={loading || deleteConfirmText.toLowerCase() !== "delete"}
+                        disabled={
+                          loading ||
+                          deleteConfirmText.toLowerCase() !== "delete" ||
+                          !deleteRetentionConsent
+                        }
                         className="bg-destructive hover:bg-destructive/90"
                       >
-                        Continue
+                        I agree and continue
                       </Button>
                     ) : (
                     <AlertDialogAction

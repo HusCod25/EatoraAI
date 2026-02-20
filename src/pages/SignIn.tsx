@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChefHat } from "lucide-react";
@@ -15,6 +16,9 @@ const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const [reactivateLoading, setReactivateLoading] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -47,14 +51,29 @@ const SignIn = () => {
       });
 
       if (error) {
-        // Use centralized error messages for better UX
         const errorMessage = error.message.includes("Invalid login credentials")
           ? "Invalid email or password. If you just signed up, please check your email to verify your account first."
           : error.message || "Unable to sign in. Please try again.";
         toast.error(errorMessage);
       } else if (data.user) {
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("deleted_at")
+            .eq("user_id", data.user.id)
+            .maybeSingle();
+
+          // If profile is soft-deleted, ask user if they want to reactivate
+          if (!profileError && profile && profile.deleted_at) {
+            setPendingUserId(data.user.id);
+            setShowReactivateDialog(true);
+            return; // Don't navigate yet
+          }
+        } catch (reactivateError) {
+          logger.warn("Failed to check soft-deleted profile on login", reactivateError);
+        }
+
         toast.success("Welcome back!");
-        // Force page reload for clean state
         window.location.href = '/';
       }
     } catch (error) {
@@ -127,6 +146,77 @@ const SignIn = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={showReactivateDialog}
+        onOpenChange={(open) => {
+          if (!open && !reactivateLoading) {
+            setShowReactivateDialog(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reactivate your account?</DialogTitle>
+            <DialogDescription>
+              We found an account that was previously scheduled for deletion. If you continue, your account will be reactivated and all your data (including weekly limits and saved meals) will remain as before.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={reactivateLoading}
+              onClick={async () => {
+                try {
+                  await supabase.auth.signOut({ scope: "global" });
+                  cleanupAuthState();
+                  toast.message(
+                    "Your account remains scheduled for deletion and you were not logged in."
+                  );
+                } catch (err) {
+                  logger.warn("Error signing out after canceling reactivation", err);
+                } finally {
+                  setShowReactivateDialog(false);
+                  setPendingUserId(null);
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={reactivateLoading}
+              onClick={async () => {
+                if (!pendingUserId) return;
+                setReactivateLoading(true);
+                try {
+                  const { error: updateError } = await supabase
+                    .from("profiles")
+                    .update({ deleted_at: null })
+                    .eq("user_id", pendingUserId);
+
+                  if (updateError) {
+                    toast.error("Failed to reactivate account. Please try again.");
+                    logger.error("Error reactivating soft-deleted profile", updateError);
+                    return;
+                  }
+
+                  toast.success("Account reactivated. Welcome back!");
+                  window.location.href = "/";
+                } catch (err) {
+                  logger.error("Unexpected error during account reactivation", err);
+                  toast.error("Failed to reactivate account. Please try again.");
+                } finally {
+                  setReactivateLoading(false);
+                  setShowReactivateDialog(false);
+                  setPendingUserId(null);
+                }
+              }}
+            >
+              Agree and continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

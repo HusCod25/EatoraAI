@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Settings, Star, LogOut, Shield, Package, Users, CheckCircle, XCircle, ListChecks, DollarSign } from "lucide-react";
+import { Settings, Star, LogOut, Shield, Package, Users, CheckCircle, XCircle, ListChecks, DollarSign, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ interface UserProfile {
   country?: string;
   currency?: string;
   budgeting_enabled?: boolean;
+  welcome_card_seen_at?: string | null;
 }
 
 export const UserAccount = () => {
@@ -44,8 +45,10 @@ export const UserAccount = () => {
   const [showAddIngredientModal, setShowAddIngredientModal] = useState(false);
   const [showPantryStaples, setShowPantryStaples] = useState(false);
   const [showBudgetingSetup, setShowBudgetingSetup] = useState(false);
+  const [startedSetupFromWelcome, setStartedSetupFromWelcome] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [showWelcomeCard, setShowWelcomeCard] = useState(false);
   const hasShownSuccessToast = useRef(false);
   const hasShownCancelToast = useRef(false);
 
@@ -222,7 +225,7 @@ export const UserAccount = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("phone_number, username, country, currency, budgeting_enabled")
+        .select("phone_number, username, country, currency, budgeting_enabled, welcome_card_seen_at")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -231,6 +234,9 @@ export const UserAccount = () => {
       }
 
       setUserProfile(data);
+      if (data && !data.welcome_card_seen_at) {
+        setShowWelcomeCard(true);
+      }
     } catch (error) {
       logger.error('Error fetching profile:', error);
     } finally {
@@ -246,6 +252,26 @@ export const UserAccount = () => {
   const handleOpenAddIngredient = () => {
     setShowMyIngredients(false);
     setShowAddIngredientModal(true);
+  };
+
+  const markWelcomeCardSeen = async () => {
+    if (!user || userProfile?.welcome_card_seen_at) return;
+    try {
+      const seenAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ welcome_card_seen_at: seenAt })
+        .eq("user_id", user.id);
+
+      if (error) {
+        logger.error("Error marking welcome card as seen:", error);
+        return;
+      }
+
+      setUserProfile((prev) => (prev ? { ...prev, welcome_card_seen_at: seenAt } : prev));
+    } catch (err) {
+      logger.error("Unexpected error marking welcome card as seen:", err);
+    }
   };
 
   if (loading) {
@@ -333,7 +359,7 @@ export const UserAccount = () => {
           <p className="text-sm font-medium">{getUserDisplayName()}</p>
           <p className="text-xs text-muted-foreground">{user?.email}</p>
         </div>
-        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
           <Button 
             size="sm" 
             variant="ghost" 
@@ -387,6 +413,46 @@ export const UserAccount = () => {
           <ThemeChanger />
         </div>
       </div>
+
+      {/* First-time Welcome Card */}
+      {showWelcomeCard && (
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">Welcome to Eatora!</p>
+              <p className="text-xs text-muted-foreground">
+                To get the full experience, set up your budgeting settings and pantry staples. This helps Eatora tailor meals to your real-life habits and costs.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                setShowWelcomeCard(false);
+                await markWelcomeCardSeen();
+              }}
+            >
+              Maybe later
+            </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                setShowWelcomeCard(false);
+                await markWelcomeCardSeen();
+                setStartedSetupFromWelcome(true);
+                setShowBudgetingSetup(true);
+              }}
+            >
+              Start setup
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Budgeting Setup Section */}
       <div className="py-4 border-t border-b space-y-3">
@@ -599,13 +665,19 @@ export const UserAccount = () => {
 
       <BudgetingSetupDialog 
         open={showBudgetingSetup} 
-          onOpenChange={(open) => {
-            setShowBudgetingSetup(open);
-            if (!open) {
-              // Refresh profile when dialog closes to update currency display
-              fetchUserProfile();
-            }
-          }}
+        onOpenChange={(open) => {
+          setShowBudgetingSetup(open);
+          if (!open) {
+            // Refresh profile when dialog closes to update currency display
+            fetchUserProfile();
+          }
+        }}
+        onCompleted={() => {
+          if (startedSetupFromWelcome) {
+            setStartedSetupFromWelcome(false);
+            setShowPantryStaples(true);
+          }
+        }}
       />
 
       <AddIngredientModal 

@@ -155,6 +155,7 @@ export type Database = {
           id: string
           marketing_opt_in: boolean | null
           phone_number: string | null
+          welcome_card_seen_at: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -171,6 +172,7 @@ export type Database = {
           id?: string
           marketing_opt_in?: boolean | null
           phone_number?: string | null
+          welcome_card_seen_at?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -187,6 +189,7 @@ export type Database = {
           id?: string
           marketing_opt_in?: boolean | null
           phone_number?: string | null
+          welcome_card_seen_at?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null

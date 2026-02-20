@@ -32,9 +32,13 @@ const ResetPassword = () => {
       const params = new URLSearchParams(hash);
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
+      const type = params.get("type");
 
       try {
         if (access_token && refresh_token) {
+          if (type === "recovery") {
+            window.localStorage.setItem("force_password_reset", "true");
+          }
           const { error } = await supabase.auth.setSession({ access_token, refresh_token });
           if (error) throw error;
           // Clean hash to avoid leaking tokens if user shares URL
@@ -77,6 +81,7 @@ const ResetPassword = () => {
       if (error) throw error;
       // Explicitly sign out everywhere so user must re-authenticate with the new password
       await supabase.auth.signOut({ scope: "global" });
+      window.localStorage.removeItem("force_password_reset");
       toast.success("Password updated. Please sign in again.");
       navigate("/signin", { replace: true });
     } catch (err: any) {

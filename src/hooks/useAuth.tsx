@@ -38,6 +38,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const initializeAuth = async () => {
       try {
+        // Handle Supabase auth callbacks (e.g. password recovery links)
+        if (typeof window !== "undefined" && window.location.hash) {
+          try {
+            const hash = window.location.hash.replace("#", "");
+            const params = new URLSearchParams(hash);
+            const access_token = params.get("access_token");
+            const refresh_token = params.get("refresh_token");
+            const type = params.get("type");
+
+            if (access_token && refresh_token) {
+              logger.debug("🔐 AUTH DEBUG: Handling auth callback from URL hash", { type });
+
+              if (type === "recovery") {
+                window.localStorage.setItem("force_password_reset", "true");
+              }
+
+              const { error: setSessionError } = await supabase.auth.setSession({
+                access_token,
+                refresh_token,
+              });
+
+              if (setSessionError) {
+                logger.warn("⚠️ AUTH DEBUG: Error setting session from callback", setSessionError);
+                cleanupAuthState();
+              }
+
+              // Clean hash to avoid leaking tokens if user shares URL
+              window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+            }
+          } catch (callbackError) {
+            logger.error("💥 AUTH DEBUG: Error processing auth callback hash", callbackError);
+          }
+        }
+
         // Get initial session first
         logger.debug('🔍 AUTH DEBUG: Getting initial session...');
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();

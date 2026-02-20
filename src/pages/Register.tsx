@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, getSupabaseUrl } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChefHat } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +27,7 @@ const Register = () => {
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const passwordPolicyText = "Password must be at least 8 characters and include uppercase, lowercase, numbers, and special characters (e.g., *, $, %, @).";
@@ -44,6 +45,15 @@ const Register = () => {
       navigate("/");
     }
   }, [user, loading, navigate]);
+
+  // If user was redirected from sign-in with an email, prefill it
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const prefillEmail = params.get("email");
+    if (prefillEmail) {
+      setEmail(prefillEmail);
+    }
+  }, [location.search]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +77,34 @@ const Register = () => {
     setLoading(true);
 
     try {
+      // First, check if there is a recently deleted account for this email
+      try {
+        const response = await fetch(`${getSupabaseUrl()}/functions/v1/check-deleted-account`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result?.hasDeleted) {
+            const confirmReactivate = window.confirm(
+              "Your old account has been found. If you continue, your previous data, weekly limits, and saved meals will be restored for this email. Do you want to reactivate it?"
+            );
+
+            if (!confirmReactivate) {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (checkError) {
+        // If the check fails, continue with normal signup flow
+        logger.warn("check-deleted-account failed, continuing with signup", checkError);
+      }
+
       // Clean up existing auth state to prevent conflicts
       cleanupAuthState();
       

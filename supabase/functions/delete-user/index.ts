@@ -59,37 +59,39 @@ serve(async (req) => {
       )
     }
 
-    // Delete user data from custom tables
-    const { error: profileError } = await supabaseClient
-      .from('profiles')
-      .delete()
-      .eq('user_id', user.id)
-
-    const { error: subscriptionError } = await supabaseClient
+    // Before deleting, check if the user has an active subscription
+    const { data: subscription, error: subscriptionError } = await supabaseClient
       .from('user_subscriptions')
-      .delete()
+      .select('id, subscription_status')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (subscriptionError) {
+      console.error('Error checking user subscription before delete:', subscriptionError);
+      return new Response(
+        JSON.stringify({ error: 'Unable to verify subscription status. Please try again later.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (subscription && subscription.subscription_status && subscription.subscription_status !== 'canceled') {
+      return new Response(
+        JSON.stringify({
+          error: 'You currently have an active subscription. Please cancel your subscription in Settings before deleting your account.',
+          code: 'subscription_active'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Soft delete: mark profile as deleted now; data in other tables is kept
+    const { error: softDeleteError } = await supabaseClient
+      .from('profiles')
+      .update({ deleted_at: new Date().toISOString() })
       .eq('user_id', user.id)
 
-    const { error: activityError } = await supabaseClient
-      .from('user_activity')
-      .delete()
-      .eq('user_id', user.id)
-
-    const { error: savedMealsError } = await supabaseClient
-      .from('saved_meals')
-      .delete()
-      .eq('user_id', user.id)
-
-    const { error: generatedMealsError } = await supabaseClient
-      .from('generated_meals')
-      .delete()
-      .eq('user_id', user.id)
-
-    // Finally, delete the user from auth
-    const { error: deleteError } = await supabaseClient.auth.admin.deleteUser(user.id)
-
-    if (deleteError) {
-      console.error('Error deleting user:', deleteError)
+    if (softDeleteError) {
+      console.error('Error soft-deleting user profile:', softDeleteError)
       return new Response(
         JSON.stringify({ error: 'Failed to delete account' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -97,7 +99,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: 'Account deleted successfully' }),
+      JSON.stringify({ message: 'Account scheduled for deletion in 10 days' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

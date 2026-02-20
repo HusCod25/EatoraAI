@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ProtectedRouteProps {
@@ -9,12 +9,23 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    const forceReset = typeof window !== "undefined" &&
+      window.localStorage.getItem("force_password_reset") === "true";
+
+    if (!user) {
       navigate("/signin");
+      return;
     }
-  }, [user, loading, navigate]);
+
+    if (forceReset && location.pathname !== "/reset-password") {
+      navigate("/reset-password");
+    }
+  }, [user, loading, navigate, location]);
 
   if (loading) {
     return (
@@ -24,7 +35,14 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  const forceReset = typeof window !== "undefined" &&
+    window.localStorage.getItem("force_password_reset") === "true";
+
   if (!user) {
+    return null;
+  }
+
+  if (forceReset && location.pathname !== "/reset-password") {
     return null;
   }
 
