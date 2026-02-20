@@ -1,0 +1,21 @@
+{
+  "name": "EatoraAI",
+  "short_name": "Eatora",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0F0A",
+  "theme_color": "#0A0F0A",
+  "icons": [
+    {
+      "src": "/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
